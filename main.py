@@ -40,31 +40,45 @@ def generate_spikes_array(N = N_steps, firing_rate = f_background, N_syn = N_syn
     :return: [array of background rate firing of shape = (N_synapses, N)
               number of spikes in (t_final - t_0) time]
     """
-    spikes = np.random.poisson(lam = firing_rate * 10e-4*(t_end-t_start)/N, size = (N_syn,N))
-    print(np.shape(spikes))
-    #plt.scatter(time_range,spikes)
-    #plt.xlabel("t (ms)")
-    #plt.show()
+    spikes = np.random.poisson(lam = firing_rate * 10e-4 * (t_end-t_start)/N, size = (N_syn,N))
+    return spikes, np.sum(spikes)/(N_syn * nr_seconds)
 
-    return spikes, np.sum(spikes)/N_syn
+def test_background_input_f(spikes_array):
+    f = spikes_array[1]
+    print(f)
+    assert f < f_background + 1, "It should be around {} Hz.".format(f_background)
 
-def plot_synaptic_input():
-    all_trains = generate_spikes_array()
+def test_background_input_cv(spikes_array):
+    input_spikes = spikes_array[0]
+    sigma = np.std(input_spikes)
+    cv = sigma/np.mean(input_spikes)
+    assert  cv < 1/sigma+1, "Not a Poisson distribution."
 
-    # Show the firing rate to check if it is what was se to
-    print("The collective average firing rate is: {} spikes per {} ms".format(np.sum(all_trains[1])/len(all_trains[0]), t_end-t_start))
+def test_visualise_background_input(spikes_array, spikes_to_see = 10):
+    all_trains, f = spikes_array
+    interval = int(N_synapses/spikes_to_see)-1
 
-    # Plot a few spike trains scaled by a factor of 2 * i for visibility
-    for i in range(0, N_synapses, 10):
-        plt.scatter(time_range, 2 * i * all_trains[0][i, :], label="synapse nr: {}".format(i))
+    #print(np.shape(all_trains))
+    for i in range(0, N_synapses, interval):
+        plt.scatter(time_range/1000, (i +1)/int(N_synapses/spikes_to_see) * all_trains[i, :], label="synapse nr: {}".format(i), marker= "|")
 
-    plt.xlabel("time (ms)")
-    #plt.legend()
+    margin = 1/spikes_to_see
+    plt.ylim([1 - margin, spikes_to_see + margin])
+    plt.xlabel("time (s)")
+    plt.title("Raster plots of {} synapses out of {}. Ensemble $\langle f \\rangle =$ {} Hz.".format(spikes_to_see,N_synapses,f))
     plt.show()
+
+def test_input_spikes(spikes_array):
+    test_background_input_f(spikes_array)
+    test_background_input_cv(spikes_array)
+    test_visualise_background_input(spikes_array)
+    print("Passed all tests for Poisson input spikes!")
+
 
 def evolve_potential(w_ex = weight_profiles):
 
     all_trains, frq = generate_spikes_array()
+    test_input_spikes([all_trains, frq])
     print("avg nr spikes = {} in {} ms".format(frq, (t_end-t_start)))
     t_spike_trains = np.transpose(all_trains)
 
@@ -132,6 +146,7 @@ def get_f(v_series):
 
 if __name__ == '__main__':
     #print(generate_spikes_array()[1])
-    #plot_synaptic_input()
     evolve_potential()
     #search_bg_weights()
+    #test_background_input_f()
+    #test_background_input_cv()
