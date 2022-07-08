@@ -1,8 +1,23 @@
 import random
-
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+
+from cycler import cycler
+
 np.random.seed(0)
+
+#mpl.rcParams['xtick.labelsize'] = 8
+#mpl.rcParams['ytick.labelsize'] = 8
+#mpl.rcParams['lines.linewidth'] = 4
+#mpl.rcParams['lines.markersize'] = 10
+
+#width = 3.487
+#height = width / 1.618
+
+#plt.figure(num=None, figsize=(width, height),  facecolor=None, edgecolor=None, frameon=False)
+
+
 
 
 # Neuron Model parameters
@@ -24,7 +39,7 @@ g_0_i = 0.0
 
 # Input parameters
 N_synapses = 250
-N_inhib_synapses = int(N_synapses/5)
+N_inhib_synapses = int(N_synapses/4)
 N_excit_synapses = N_synapses - N_inhib_synapses
 
 mu, sigma = 0.08, np.sqrt(0.065)
@@ -33,16 +48,17 @@ normal_std = np.sqrt(np.log(1 + (sigma/mu)**2))
 normal_mean = np.log(mu) - normal_std**2 / 2
 
 #weight_profiles = np.random.lognormal(mean = -2.0, sigma = 0.5, size = N_excit_synapses)
-w_inh = (-1) * np.ones(N_inhib_synapses)*(1e-3)
+#w_inh = (-1) * np.ones(N_inhib_synapses)*(0.001)
 #w_inh = (-1) * np.ones(N_inhib_synapses)*(0.015)
 weight_profiles = np.random.lognormal(mean = normal_mean, sigma = normal_std, size = N_excit_synapses)
+w_inh = np.random.lognormal(mean = normal_mean, sigma = normal_std, size = N_inhib_synapses)
 # The above specific mean and sigma values are chosen s.t. a reasonable background
 # firing rate of the output neuron is obtained. (more details search_bg_weights())
 
 
 f_background = 5 # Hz
-f_max = 10 # Hz
-f_inhib = 20 # Hz
+f_max = 20 # Hz
+f_inhib = 5 # Hz
 
 
 # Integration parameters
@@ -57,14 +73,17 @@ save_interval = int(10/dt) # for dt = 0.1 save every 100 ms
 
 burn_seconds = int(nr_seconds/2)
 burn_steps = int(burn_seconds * 1000 / dt) # steps or 20 seconds or 20000 ms
-stimulus_seconds = 5
+stimulus_seconds = 10
 stimulus_time_steps = int(stimulus_seconds * 1000 / dt)
 silence_seconds = nr_seconds - burn_seconds - stimulus_seconds
 silence_time_steps = int(silence_seconds * 1000 / dt)
 
 spikes_pre = np.random.poisson(lam = f_background * 10e-4 * dt, size = (N_excit_synapses, burn_steps))
 spikes_post = np.random.poisson(lam = f_background * 10e-4 * dt, size = (N_excit_synapses, silence_time_steps))
-spikes_inh = np.random.poisson(lam = f_inhib * 10e-4 * dt, size =  (N_inhib_synapses, N_steps))
+spikes_inh_pre = np.random.poisson(lam = f_inhib * 10e-4 * dt, size =  (N_inhib_synapses, burn_steps))
+spikes_inh_post = np.random.poisson(lam = f_inhib * 10e-4 * dt, size =  (N_inhib_synapses, silence_time_steps))
+
+
 
 def get_input_tuning(theta_i = 0, A = 1, N_orientations = 100):
     theta = np.linspace(theta_i - np.pi/2, theta_i + np.pi/2, N_orientations)
@@ -77,7 +96,7 @@ def get_input_tuning(theta_i = 0, A = 1, N_orientations = 100):
     plt.show()
     return f
 
-def get_f_result(theta, theta_synapse = [0]):
+def get_f_result(theta, theta_synapse = [0], f_background = f_background):
     #c = f_response / (f_background + 2 * A)
     #f = c * (f_background + A + A * np.cos((theta - theta_synapse) * np.pi*3 / 4))
     #f = 2*A + A * np.cos((theta - theta_synapse) * np.pi * 2 / 3)
@@ -87,40 +106,61 @@ def get_f_result(theta, theta_synapse = [0]):
     #print(min(theta - theta_synapse))
     B = (f_background-f_max)/(np.cos(1/3 * np.pi * np.pi) - 1)
     A = f_max - B
-    f = A + B * np.cos((theta - theta_synapse) * np.pi * 3 /4)
+    f = A + B * np.cos((theta - theta_synapse) * np.pi * 2/3)
     #print(max(f))
     #print(min(f))
     return f
 
 def get_response_for_bar():
-    bars = 20
-    fs_out = np.zeros(bars)
+    bars = 11
+    trials = 5
+    fs_out = np.zeros((trials, bars))
     tuned_synapses = tune_all_synapses()
-    for i in range(bars):
-        theta = -np.pi/2 + i * np.pi / (bars)
-        #f_response = get_f_result(theta, theta_synapse=0)
-        print(i)
-        fs_out[i] = evolve_potential_with_inhibition(theta=theta, name_f="f for bar: {}".format(i), name_V= "V for bar: {}".format(i), theta_synapse=tuned_synapses)
-        print("f_out = {}".format(fs_out[i]))
-    plt.scatter(np.linspace(-90, 90, bars), fs_out)
+    tuned_inh_synapses = tune_all_synapses(N=N_inhib_synapses)
+    bars_range = np.linspace(-90, 90, bars)
+
+    for j in range(trials):
+        print("trial {}".format(j))
+        for i in range(bars):
+            theta = -np.pi/2 + i * np.pi / (bars)
+            #f_response = get_f_result(theta, theta_synapse=0)
+            fs_out[j, i] = evolve_potential_with_inhibition(theta=theta, name_i="i for bar: {}".format(i), name_V= "V for bar: {}".format(i), theta_synapse=tuned_synapses, inh_synapses = tuned_inh_synapses)
+            print("f_out = {}".format(fs_out[j,i]))
+        plt.scatter(bars_range, fs_out[j,:], alpha=0.4, color = 'blue')
+        plt.savefig("output trial {}".format(j))
+    plt.savefig("output_f_theta_all")
+
+    avg = np.mean(fs_out, axis=0)
+    plt.plot(bars_range, avg, marker='o', alpha=0.9, linewidth = "2", markersize = "12", label = "$\langle f \\rangle$")
+    plt.legend()
     plt.xlabel("$\\theta$")
     plt.ylabel("f")
     #plt.title("Showing a bar of $\\theta$ orientation, 100 tuned synapses at 0 rad with weights = 0.01")
     plt.savefig("output_f_theta")
     plt.show()
 
-def tune_all_synapses():
-    tuning_angles = np.random.normal(loc=0.0, scale = 0.55, size=N_excit_synapses)
+def tune_all_synapses(N = N_excit_synapses):
+    #tuning_angles = np.random.normal(loc=0.0, scale = 0.55, size=N)
+    #tuning_angles = np.random.normal(loc=0.0, scale=np.pi/5, size=N)
+    tuning_angles_ex = np.random.normal(loc=0.0, scale=np.pi/4, size=N)
+    tuning_angles_in = np.random.normal(loc=0.0, scale=np.pi/4, size=N_inhib_synapses)
     #plt.ylabel("Log weights $w_{j}$ (a.u.)")
     #plt.xlabel("Tuning orientation $\\theta_{j}$ (deg)")
     #plt.scatter(tuning_angles * 180/np.pi, np.log(weight_profiles[:N_excit_synapses]), edgecolors = 'black')
+
+    plt.hist(tuning_angles_ex * 180/np.pi, label= "$N_{E}$", alpha = 0.8, color = 'tab:orange')
+    plt.hist(tuning_angles_in * 180/np.pi, label="$N_{I}$", alpha = 0.8, color = 'tab:blue')
+    plt.xlabel("Tuning orientation $\\theta_{j}$ (deg)")
+    plt.xlim([-95,95])
+    plt.legend()
     #plt.savefig("weights_per_tuned_synapse")
-    #plt.show()
-    return tuning_angles
+    plt.savefig('tuning_range')
+    plt.show()
+    return tuning_angles_ex
 
 
 def get_input_response_for_bar():
-    bars = 20
+    bars = 10
     fs_out = np.zeros(bars)
     all_fs = np.zeros((bars, N_excit_synapses))
     tuning_angles = tune_all_synapses()
@@ -169,7 +209,7 @@ def get_input_response_for_bar():
 
 
 
-def generate_spikes_array(N = N_steps, firing_rate = f_background, f_response = np.ones(N_excit_synapses), N_syn = N_excit_synapses):
+def generate_spikes_array(spikes_1 = spikes_pre, spikes_2 = spikes_post, f_background = f_background, f_response = np.ones(N_excit_synapses)):
     """
     Generate a spike of length N with a frequency of firing_rate.
 
@@ -192,7 +232,7 @@ def generate_spikes_array(N = N_steps, firing_rate = f_background, f_response = 
 
         f_spikes_stimulus = np.sum(spikes_stimulus, axis=1) / (stimulus_seconds)
 
-        all_spikes = np.hstack([spikes_pre, spikes_stimulus, spikes_post])
+        all_spikes = np.hstack([spikes_1, spikes_stimulus, spikes_2])
         print(np.shape(all_spikes))
 
         #for i in range(stimulus_time_steps):
@@ -247,7 +287,7 @@ def test_input_spikes(spikes_array):
     print("Passed all tests for Poisson input spikes!")
 
 
-def evolve_potential(w_ex = weight_profiles, theta = 0, name_V = "V(t)", name_f = "f(t)", theta_synapse = np.zeros(N_excit_synapses)):
+def evolve_potential(w_ex = weight_profiles, theta = 0, name_V = "V(t)", name_i = "f(t)", theta_synapse = np.zeros(N_excit_synapses)):
     #theta_synapse = np.asarray([0, np.pi/2, np.pi/4])
     #f_response = get_f_result(theta, theta_synapse=theta_synapse)
     #all_trains, frq = generate_tuned_array()
@@ -327,8 +367,9 @@ def evolve_potential(w_ex = weight_profiles, theta = 0, name_V = "V(t)", name_f 
 
 
 
-def evolve_potential_with_inhibition(w = weight_profiles, theta = 0, name_V = "V(t)", name_f = "f(t)", theta_synapse = np.zeros(N_excit_synapses)):
+def evolve_potential_with_inhibition(w = weight_profiles, theta = 0, name_V = "V(t)", name_i = "i(t)", theta_synapse = np.zeros(N_excit_synapses), inh_synapses = np.zeros(N_inhib_synapses)):
     all_trains, frq = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=theta_synapse))
+    spikes_inh, frq = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=inh_synapses, f_background=f_inhib), f_background=f_inhib, spikes_1= spikes_inh_pre, spikes_2 = spikes_inh_post)
     #all_trains, frq = generate_spikes_array(N_syn=N_excit_synapses, f_response=np.ones(N_excit_synapses) * 5)
     #inh_trains, frs_i = generate_spikes_array(N_syn = N_inhib_synapses, f_response=np.ones(N_inhib_synapses) * f_inhib)
     t_spike_trains = np.transpose(all_trains)
@@ -342,22 +383,30 @@ def evolve_potential_with_inhibition(w = weight_profiles, theta = 0, name_V = "V
     f_showtime = []
     nr_burned_spikes = 0
     v = V_rest
+    I_ex = []
+    I_inh = []
     #for j in range(100):
     #    w_ex[j] = np.random.lognormal(mean = -2.0, sigma = 0.5, size = 1)
 
     nr_spikes = 0
     for i in range(N_steps):
+
+
         g = g - g * dt / tau_synapse + dt * (np.sum(np.multiply(t_spike_trains[i], w)))
         g_i = g_i - g_i * dt / tau_i + dt * (np.sum(np.multiply(t_inhib_trains[i], w_inh)))
 
         E_eff = (E_leak + g*E_synapse + g_i * E_inh)/(1 + g + g_i)
         tau_eff = tau_membrane/(1 + g + g_i)
         v = E_eff - (v - E_eff) * np.exp(-dt/tau_eff)
+
+
         if (v >= V_th):
             nr_spikes = nr_spikes + 1
             v = V_spike
             if (burn_steps and i< burn_steps+stimulus_time_steps): nr_burned_spikes = nr_burned_spikes + 1
             if (i % save_interval == 0):
+                I_ex.append(g * (E_synapse - v))
+                I_inh.append(g_i * (E_inh - v))
                 v_series.append(v)
                 f_series.append(nr_spikes*10000/(save_interval*(len(f_series)+1)))
                 if (burn_steps and i< burn_steps+stimulus_time_steps):
@@ -365,6 +414,8 @@ def evolve_potential_with_inhibition(w = weight_profiles, theta = 0, name_V = "V
             v = V_rest
         else:
             if (i % save_interval == 0):
+                I_ex.append(g * (E_synapse - v))
+                I_inh.append(g_i * (E_inh - v))
                 v_series.append(v)
                 f_series.append(nr_spikes*10000/(save_interval*(len(f_series)+1)))
                 if (burn_steps and i< burn_steps+stimulus_time_steps): f_showtime.append(nr_burned_spikes * 10000 / (save_interval * (len(f_showtime) + 1)))
@@ -374,17 +425,19 @@ def evolve_potential_with_inhibition(w = weight_profiles, theta = 0, name_V = "V
     print("Neuron output f = {} Hz".format(nr_spikes*1000/(t_end-t_start)))
     #plt.plot(time_range/1000, v_series)
     t = np.linspace(0, nr_seconds, len(v_series))
-    plt.plot(t, v_series)
-    plt.xlabel("time (s)")
-    plt.ylabel("v(t)")
-    plt.savefig(name_V)
-    plt.figure()
-
-    #plt.plot(t,f_series)
+    #plt.plot(t, v_series)
     #plt.xlabel("time (s)")
-    #plt.ylabel("f(t)")
+    #plt.ylabel("v(t)")
+    #plt.savefig(name_V)
+    #plt.figure()
+
+    #plt.plot(t, I_inh, label="Inhibitory current", alpha=0.8)
+    #plt.plot(t, I_ex, label="Excitatory current", alpha = 0.4)
+    #plt.xlabel("time (ms)")
+    #plt.ylabel("I(t)")
+    #plt.legend()
     #plt.title("Neuron output f = {} Hz".format(nr_spikes*1000/(t_end-t_start)))
-    #plt.savefig(name_f)
+    #plt.savefig(name_i)
     #plt.figure()
 
     #plt.plot(np.linspace(80, 100, len(f_showtime)), f_showtime)
@@ -457,6 +510,25 @@ def get_f(v_series):
     plt.show()
 
 
+def plot_f_analytic():
+    theta = np.linspace(-np.pi/2, np.pi/2, 100)
+    plt.figure()
+    plt.plot(theta*180/np.pi ,get_f_result(theta=theta, theta_synapse=[0]))
+    plt.xlabel("$\Delta_{i} = (\\theta - \\theta_{i})$ (deg)")
+    plt.ylabel("Firing rate $f_{i}$ (Hz)")
+    plt.savefig("analytic_f")
+    plt.xlim([-90,90])
+    plt.show()
+
+def get_hist_weights():
+    plt.hist(weight_profiles, label= "$w_{E}$", alpha = 0.8, color = 'tab:orange')
+    plt.hist(w_inh, label="$w_{I}$", alpha=0.8, color='tab:blue')
+    plt.xlabel("$w_{X}$")
+    plt.legend()
+    plt.savefig("weight_distrib")
+    plt.show()
+
+
 if __name__ == '__main__':
     #print(generate_spikes_array()[1])
     #evolve_potential()
@@ -465,11 +537,12 @@ if __name__ == '__main__':
     #test_background_input_f()
     #test_background_input_cv()
     #get_input_tuning()
-    get_response_for_bar()
+    #get_response_for_bar()
     #print(get_f_result(theta = 0, theta_synapse= 0))
     #evolve_potential_with_inhibition()
     #get_input_tuning(theta_i=0, A=1, N_orientations=100)
     #get_input_response_for_bar()
     #tune_all_synapses()
-
+    #plot_f_analytic()
+    get_hist_weights()
 

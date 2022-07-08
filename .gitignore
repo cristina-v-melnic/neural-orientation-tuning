@@ -1,29 +1,31 @@
+input_details/
+
+output_details/
+
+better_balanced_EI/
+
+reference/
+
+better_limits_cont_tuned_inhib/
+
+continuous_tuned_with_inhib/
+
+untuned_response/
+
+150_tuned_synapses_inhib_added/
+
 2_tuning_of_150_synapses/
 
 3_tuning_of_all_synapses/
 
-f_rand_seed_test/
-
-tuned_curve_1_synapse/
-
-tuned_curve_1_synapse_stimulus_time_only/
+tuned_curve_100_synapses_time_only/
 
 tuned_curve_2_synapses_stimulus_time_only/
 
-tuned_curve_100_synapses_time_only/
+tuned_curve_1_synapse_stimulus_time_only/
+
+tuned_curve_1_synapse/
+
+f_rand_seed_test/
 
 tuned_f_rand_seed_test/
-
-reference/
-
-continuous_tuned_with_inhib/
-
-better_limits_cont_tuned_inhib/
-
-untuned_response/
-
-input_details/
-
-150_tuned_synapses_inhib_added/
-
-
