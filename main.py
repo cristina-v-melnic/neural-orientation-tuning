@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 
 np.random.seed(0)
-
 #mpl.rcParams['xtick.labelsize'] = 8
 #mpl.rcParams['ytick.labelsize'] = 8
 #mpl.rcParams['lines.linewidth'] = 4
@@ -16,7 +15,6 @@ np.random.seed(0)
 #height = width / 1.618
 
 #plt.figure(num=None, figsize=(width, height),  facecolor=None, edgecolor=None, frameon=False)
-
 
 
 
@@ -42,7 +40,8 @@ N_synapses = 250
 N_inhib_synapses = int(N_synapses/4)
 N_excit_synapses = N_synapses - N_inhib_synapses
 
-mu, sigma = 0.08, np.sqrt(0.065)
+mu = 0.12
+sigma = np.sqrt(mu)
 #mu, sigma = 0.015, np.sqrt(0.015)
 normal_std = np.sqrt(np.log(1 + (sigma/mu)**2))
 normal_mean = np.log(mu) - normal_std**2 / 2
@@ -57,19 +56,20 @@ w_inh = np.random.lognormal(mean = normal_mean, sigma = normal_std, size = N_inh
 
 
 f_background = 5 # Hz
-f_max = 20 # Hz
+f_max = 10 # Hz
 f_inhib = 5 # Hz
 
 
 # Integration parameters
 dt = 0.1 # ms
-nr_seconds = 80
+nr_seconds = 20
 N_steps = int(nr_seconds * 1000 / dt) # integration time steps
 t_start = 0 # ms
 t_end = nr_seconds * 1000 # ms
 #dt = (t_end - t_start)/N_steps # time step width
 time_range = np.linspace(t_start, t_end, N_steps)
-save_interval = int(10/dt) # for dt = 0.1 save every 100 ms
+save_interval = 10 # for dt = 0.1 save every 100 ms
+tau_ref = int(5/dt)
 
 burn_seconds = int(nr_seconds/2)
 burn_steps = int(burn_seconds * 1000 / dt) # steps or 20 seconds or 20000 ms
@@ -84,6 +84,83 @@ spikes_inh_pre = np.random.poisson(lam = f_inhib * 10e-4 * dt, size =  (N_inhib_
 spikes_inh_post = np.random.poisson(lam = f_inhib * 10e-4 * dt, size =  (N_inhib_synapses, silence_time_steps))
 
 
+def get_spike_indexes(spike_train, f_array = False):
+    '''
+    Function that transforms the array with Poisson distributed spikes (0 or 1)
+    into an array that only stores the indexes of spikes, thereby avoiding the
+    unnecessary storage of data.
+
+    :param spike_train: Array of shape (N_syn, N_steps) - containing Poisson
+                        distributed 0s or 1s for each presynaptic input.
+           f_array: 'False' by default - bool parameter to indicate the
+                     output of the individual presynaptic firing rates.
+
+    :return: Default:
+                      all_indexes (N_syn, different lengths) - containing only the
+                      indexes of spikes for each presynaptic input.
+             Upon specification:
+                      List of arrays [all_indexes, all_fs (N_syn)] - where
+                      the additional array gives the firing frequency of each
+                      presynaptic input.
+    '''
+
+    N = len(spike_train)
+    all_indexes = []
+
+    if (f_array == False):
+        for i in range(N):
+            indexes = np.nonzero(spike_train[i])[0]
+            all_indexes.append(indexes)
+        return all_indexes
+    else:
+        all_fs = np.zeros(N)
+        nr_seconds = len(spike_train[0]) * dt / 1000
+        for i in range(N):
+            indexes = np.nonzero(spike_train[i])[0]
+            all_indexes.append(indexes)
+            all_fs[i] = len(indexes) / nr_seconds
+        return all_indexes, all_fs
+
+def get_spiked_neuron_indexes(spike_train, t = 398400):
+    N_neurons = len(spike_train)
+
+    spiked = []
+    # Search over all indexes for values matching the timestep number
+    # and save the spiking neurons at that timestep in a list.
+    for n in range(N_neurons):
+        if np.any(np.equal(spike_train[n], t)):
+            spiked.append(n)
+
+    if (len(spiked) != 0):
+        return spiked
+    else:
+        return False
+
+def optimize_conductance_comp(g, g_i):
+    '''
+
+    Didn't really work. It took too long to compute.
+    Try later.
+
+    :param g:
+    :param g_i:
+    :return:
+    '''
+    g = g - g * dt / tau_synapse
+    g_i = g_i - g_i * dt / tau_i
+
+    ind_ex = get_spiked_neuron_indexes(all_trains)
+    ind_in = get_spiked_neuron_indexes(spikes_inh)
+
+    if ind_ex != False:
+        g = g + dt * np.sum(np.take(weight_profiles, ind_ex))
+        print(g)
+
+    if ind_in != False:
+        g_i = g_i + dt * np.sum(np.take(w_inh, ind_in))
+        print(g_i)
+
+    return g, g_i
 
 def get_input_tuning(theta_i = 0, A = 1, N_orientations = 100):
     theta = np.linspace(theta_i - np.pi/2, theta_i + np.pi/2, N_orientations)
@@ -111,52 +188,134 @@ def get_f_result(theta, theta_synapse = [0], f_background = f_background):
     #print(min(f))
     return f
 
-def get_response_for_bar():
+def get_fs(theta = 1.3, theta_synapse = [0], f_background = f_background):
+    s = 0.4
+    delta = theta - np.asarray(theta_synapse)
+    #return f_background/(s * np.sqrt(2 * np.pi)) * np.exp(- delta**2/(2 * s**2))
+    f = f_background + (f_max - f_background)/(s * np.sqrt(2 * np.pi)) * np.exp(- delta**2/(2 * s**2))
+    #plt.scatter(delta, f)
+    #plt.show()
+    return f
+
+def get_response_for_bar(trials = 1):
     bars = 11
-    trials = 5
     fs_out = np.zeros((trials, bars))
-    tuned_synapses = tune_all_synapses()
-    tuned_inh_synapses = tune_all_synapses(N=N_inhib_synapses)
+    tuned_ex_synapses, tuned_in_synapses = tune_all_synapses()
+    #tuned_in_synapses = tune_all_synapses(N=N_inhib_synapses)
     bars_range = np.linspace(-90, 90, bars)
+
+
+    #print(nr_spikes)
 
     for j in range(trials):
         print("trial {}".format(j))
+        v_spont, g_e_spont, g_i_spont, tau_spont, nr_spikes_spont, v_series_spont, I_ex_spont, I_in_spont = evolve_potential_with_inhibition(
+            spikes_ex=spikes_pre, spikes_in=spikes_inh_pre,
+            to_plot=False, only_f=False, parameter_pass=True)
+        print("after int = {}".format(v_spont))
         for i in range(bars):
             theta = -np.pi/2 + i * np.pi / (bars)
             #f_response = get_f_result(theta, theta_synapse=0)
-            fs_out[j, i] = evolve_potential_with_inhibition(theta=theta, name_i="i for bar: {}".format(i), name_V= "V for bar: {}".format(i), theta_synapse=tuned_synapses, inh_synapses = tuned_inh_synapses)
+            #spikes_ex = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=tuned_ex_synapses))
+            #spikes_in = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib), f_background=f_inhib)
+            spikes_ex = generate_spikes_array(f_response=get_fs(theta=theta, theta_synapse=tuned_ex_synapses))
+            spikes_in = generate_spikes_array(
+                f_response=get_fs(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib),
+                f_background=f_inhib)
+
+            if j == 0:
+                fs_out[j, i] = evolve_potential_with_inhibition(
+                spikes_ex, spikes_in,
+                v = v_spont, g_e = g_e_spont, g_i = g_i_spont, tau = tau_ref, nr_spikes=0, v_series=[], I_ex = [], I_in=[],
+                name_i="i for bar: {}".format(i), name_V= "V for bar: {}".format(i), only_f=False, to_plot=True, parameter_pass=False)
+            else:
+                fs_out[j, i] = evolve_potential_with_inhibition(
+                    spikes_ex, spikes_in,
+                    v=v_spont, g_e=g_e_spont, g_i=g_i_spont, tau=tau_ref, nr_spikes=0, v_series=[], I_ex=[], I_in=[],
+                    name_i="i for bar: {}".format(i), name_V="V for bar: {}".format(i), only_f=True, to_plot=False,
+                    parameter_pass=False)
+
             print("f_out = {}".format(fs_out[j,i]))
-        plt.scatter(bars_range, fs_out[j,:], alpha=0.4, color = 'blue')
+        plt.scatter(bars_range, fs_out[j,:], alpha=0.4, color = 'grey')
         plt.savefig("output trial {}".format(j))
     plt.savefig("output_f_theta_all")
 
     avg = np.mean(fs_out, axis=0)
-    plt.plot(bars_range, avg, marker='o', alpha=0.9, linewidth = "2", markersize = "12", label = "$\langle f \\rangle$")
+    std = np.std(fs_out, axis=0)
+
+    PO_index = np.argmax(avg)
+    PO = bars_range[PO_index]
+    print(PO)
+
+    plt.errorbar(bars_range, avg, yerr= std, fmt='none', color = 'black')
+    plt.plot(bars_range, avg, marker='o', alpha=0.9, linewidth = "2", markersize = "12",label = "$\langle f \\rangle$", color = 'gray')
     plt.legend()
     plt.xlabel("$\\theta$")
     plt.ylabel("f")
     #plt.title("Showing a bar of $\\theta$ orientation, 100 tuned synapses at 0 rad with weights = 0.01")
     plt.savefig("output_f_theta")
-    plt.show()
+    plt.figure()
+
+    get_PO_vs_weight(tuned_ex_synapses * 180/np.pi-PO, weight_profiles, name = 'exc')
+    get_PO_vs_weight(tuned_in_synapses * 180/np.pi - PO, w_inh, name = 'inh')
+    return avg, std, PO
+
+def get_PO_vs_weight(x, y, name = ''):
+    if name == 'exc':
+        plt.scatter(np.abs(x), np.log(y), s = 50, marker='o', alpha=0.9, color = 'tab:orange', label = "Excitatory synapse")
+    else:
+        plt.scatter(np.abs(x), np.log(y), s = 50, marker='o', alpha=0.9, color = 'tab:blue',  label = "Inhibitory synapse")
+    plt.xlabel("Pre- and post-synaptic neuron PO difference")
+    plt.ylabel("Synaptic weight")
+    plt.legend()
+    plt.savefig("PO_vs_weight_{}".format(name))
+    plt.figure()
+
+
 
 def tune_all_synapses(N = N_excit_synapses):
     #tuning_angles = np.random.normal(loc=0.0, scale = 0.55, size=N)
     #tuning_angles = np.random.normal(loc=0.0, scale=np.pi/5, size=N)
-    tuning_angles_ex = np.random.normal(loc=0.0, scale=np.pi/4, size=N)
-    tuning_angles_in = np.random.normal(loc=0.0, scale=np.pi/4, size=N_inhib_synapses)
+
+    import scipy.stats as stats
+
+    #lower, upper = (-1) * np.pi/2, np.pi/2
+    #mu_e, sigma_e = 0, np.pi/3
+    #mu_i, sigma_i = 0, np.pi/3
+    #tuning_angles_ex = stats.truncnorm(
+    #    (lower - mu_e) / sigma_e, (upper - mu_e) / sigma_e, loc=mu_e, scale=sigma_e).rvs(N_excit_synapses)
+    #N = stats.norm(loc=mu, scale=sigma)
+    #tuning_angles_in = stats.truncnorm(
+    #    (lower - mu_i) / sigma_i, (upper - mu_i) / sigma_i, loc=mu_i, scale=sigma_i).rvs(N_inhib_synapses)
+   # print(tuning_angles_in.rvs(100))
+
+    tuning_angles_ex = np.random.normal(loc=0.0, scale=np.pi / 7, size=N_excit_synapses)
+    tuning_angles_in = np.random.normal(loc=0.0, scale=np.pi / 5, size=N_inhib_synapses)
+    #tuning_angles_in = np.ones(N_inhib_synapses) * 1.7
+
     #plt.ylabel("Log weights $w_{j}$ (a.u.)")
     #plt.xlabel("Tuning orientation $\\theta_{j}$ (deg)")
     #plt.scatter(tuning_angles * 180/np.pi, np.log(weight_profiles[:N_excit_synapses]), edgecolors = 'black')
 
+    diff = np.histogram(tuning_angles_ex)[0]- np.histogram(tuning_angles_in)[0]
+    print(diff)
+
     plt.hist(tuning_angles_ex * 180/np.pi, label= "$N_{E}$", alpha = 0.8, color = 'tab:orange')
+    #plt.hist((tuning_angles_ex - tuning_angles_in) * 180 / np.pi, label="$N_{E}-N_{I}$", alpha=0.8, color='tab:green')
     plt.hist(tuning_angles_in * 180/np.pi, label="$N_{I}$", alpha = 0.8, color = 'tab:blue')
+
+    low_bound = np.min([np.min(tuning_angles_ex), np.min(tuning_angles_in)]) * 180/np.pi
+    up_bound = np.max([np.max(tuning_angles_ex),np.max(tuning_angles_in)]) * 180/np.pi
+    shift = (up_bound-low_bound)/(2*len(diff))
+    plt.plot(np.linspace(shift+low_bound, up_bound-shift, len(diff)),
+                diff, marker = 'o', markersize = 12, color = 'grey', label = "$N_{E}-N_{I}$" )
     plt.xlabel("Tuning orientation $\\theta_{j}$ (deg)")
-    plt.xlim([-95,95])
+    #plt.xlim([-95,95])
     plt.legend()
     #plt.savefig("weights_per_tuned_synapse")
     plt.savefig('tuning_range')
     plt.show()
-    return tuning_angles_ex
+    return tuning_angles_ex, tuning_angles_in
 
 
 def get_input_response_for_bar():
@@ -209,16 +368,15 @@ def get_input_response_for_bar():
 
 
 
-def generate_spikes_array(spikes_1 = spikes_pre, spikes_2 = spikes_post, f_background = f_background, f_response = np.ones(N_excit_synapses)):
+def generate_spikes_array(f_response = np.ones(N_excit_synapses) * f_background, f_background = f_background):
     """
     Generate a spike of length N with a frequency of firing_rate.
 
     :param N: length of spike evolution in time array.
-    :param firing_rate: 5 Hz indicates background and 500 Hz activity rates.
+    :param firing_rate: 5 Hz: the background firing rate.
     :return: [array of background rate firing of shape = (N_synapses, N)
               number of spikes in (t_final - t_0) time]
     """
-
 
     if len(f_response) > 0:
         for i in range(len(f_response)):
@@ -230,10 +388,8 @@ def generate_spikes_array(spikes_1 = spikes_pre, spikes_2 = spikes_post, f_backg
         for i in range(len(f_response)):
            spikes_stimulus[i, :] = np.random.poisson(lam=f_response[i] * 10e-4 * dt, size= (1, stimulus_time_steps))
 
-        f_spikes_stimulus = np.sum(spikes_stimulus, axis=1) / (stimulus_seconds)
+        #f_spikes_stimulus = np.sum(spikes_stimulus, axis=1) / (stimulus_seconds)
 
-        all_spikes = np.hstack([spikes_1, spikes_stimulus, spikes_2])
-        print(np.shape(all_spikes))
 
         #for i in range(stimulus_time_steps):
         #    for j in range(100):
@@ -245,11 +401,13 @@ def generate_spikes_array(spikes_1 = spikes_pre, spikes_2 = spikes_post, f_backg
             #for j in range(150, N_synapses):
                # spikes[j, burn_steps + i] = np.random.poisson(lam=f_response[2] * 10e-4 * dt)
     #return spikes, np.sum(spikes[0, burn_steps:burn_steps + stimulus_time_steps]) / (stimulus_seconds)
-        return all_spikes, f_spikes_stimulus
+        #return spikes_stimulus, f_spikes_stimulus
+        return spikes_stimulus
     else:
         raise ValueError("Each synapse must have a corresponding frequency. i.e. size(f_response) = Nr exitatory synapses")
 
 
+# To delete.
 def generate_tuned_array(N = N_steps, firing_rate = 500, f_response = 0, N_syn = N_synapses):
     spikes = np.random.poisson(lam=firing_rate * 10e-4 * (t_end - t_start) / N, size=(1, N))
     return spikes, np.sum(spikes)/(nr_seconds)
@@ -266,193 +424,167 @@ def test_background_input_cv(spikes_array):
     cv = sigma/np.mean(input_spikes)
     assert  cv < 1/sigma+1, "Not a Poisson distribution."
 
-def test_visualise_background_input(spikes_array, spikes_to_see = 10):
-    all_trains, f = spikes_array
-    interval = int(N_synapses/spikes_to_see)-1
+def test_visualise_background_input(spikes_array, spikes_to_see=10, name="excitatory", f = 5):
+    all_trains = spikes_array
+    N_synapses = len(spikes_array)
+
+    #interval = int(N_synapses/spikes_to_see)-1
+    interval = 1
+    spikes_to_see = N_synapses
+    nr_s = 1
+    time_range = np.linspace(t_start, 1000, len(all_trains[0,:nr_s*10000]))
 
     #print(np.shape(all_trains))
-    for i in range(0, N_synapses, interval):
-        plt.scatter(time_range/1000, (i + 1)/int(N_synapses/spikes_to_see) * all_trains[i, :], label="synapse nr: {}".format(i), marker= "|")
+    for i in range(2, N_synapses, interval):
+        plt.scatter(time_range, (i+1)/int(N_synapses/spikes_to_see) * all_trains[i, :nr_s * 10000], label="synapse nr: {}".format(i), s = 10, marker= ".", color = "black")
 
-    margin = 1/spikes_to_see
-    plt.ylim([1 - margin, spikes_to_see + margin])
-    plt.xlabel("time (s)")
-    plt.title("Raster plots of {} synapses out of {}. Ensemble $\langle f \\rangle =$ {} Hz.".format(spikes_to_see,N_synapses,f))
+
+    margin = 2/spikes_to_see
+    plt.ylim([1 - margin, spikes_to_see + 2])
+    plt.xlabel("Time (ms)")
+    plt.ylabel("Cell number")
+    #plt.gca().axes.get_yaxis().set_visible(False)
+    plt.savefig("{} {} synapses out of {}. Ensemble f = {:.2f} Hz.".format(spikes_to_see,name,N_synapses,f))
+    plt.figure()
     #plt.show()
 
-def test_input_spikes(spikes_array):
-    test_background_input_f(spikes_array)
-    test_background_input_cv(spikes_array)
-    test_visualise_background_input(spikes_array)
+def test_input_spikes(spikes_array, name = "excitatory", f = 5):
+    #test_background_input_f(spikes_array)
+    #test_background_input_cv(spikes_array)
+    test_visualise_background_input(spikes_array, name = name, f = f)
     print("Passed all tests for Poisson input spikes!")
 
+def get_input_f_isi_and_cv(spikes_arrays):
+    """
 
-def evolve_potential(w_ex = weight_profiles, theta = 0, name_V = "V(t)", name_i = "f(t)", theta_synapse = np.zeros(N_excit_synapses)):
-    #theta_synapse = np.asarray([0, np.pi/2, np.pi/4])
-    #f_response = get_f_result(theta, theta_synapse=theta_synapse)
-    #all_trains, frq = generate_tuned_array()
-    #all_trains, frq = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=theta_synapse))
-    all_trains, frq = generate_spikes_array(f_response=np.ones(N_excit_synapses)*5)
-    #test_input_spikes([all_trains, frq])
-    #print("input spike f = {} Hz".format(frq))
-    t_spike_trains = np.transpose(all_trains)
+    :param spikes_arrays: spikes_array = [Excitatory spike train array, Inhibitory spike trains]
+                          - list of arrays of arbitrary dimensions
+    :return: Plots firing rates, ISI and CV of ISI for both E/I populations.
+    """
 
-    g = g_0
-    g_series = []
-    v_series = []
-    f_series = []
-    f_showtime = []
-    nr_burned_spikes = 0
-    v = V_rest
-    #for j in range(100):
-    #    w_ex[j] = np.random.lognormal(mean = -2.0, sigma = 0.5, size = 1)
+    both_isi = []
+    both_fs = []
 
+    for spikes_array in spikes_arrays:
+        N = len(spikes_array)
+        all_isi = []
+        all_fs = np.zeros(N)
+        for i in range(N):
+            indexes = np.nonzero(spikes_array[i])
+            all_fs[i] = len(indexes[0])
+            all_isi.append(np.diff(indexes, axis=1) * dt)
 
-    nr_spikes = 0
-    for i in range(N_steps):
-        g = g - g*dt/tau_synapse + dt * (np.sum(np.multiply(t_spike_trains[i], w_ex)))
-        g_series.append(g)
-        E_eff = (E_leak + g*E_synapse)/(1 + g)
-        tau_eff = tau_membrane/(1+g)
-        v = E_eff - (v - E_eff) * np.exp(-dt/tau_eff)
-        if (v >= V_th):
-            nr_spikes = nr_spikes + 1
-            v = V_spike
-            if (i > burn_steps and i < burn_steps+stimulus_time_steps):
-                nr_burned_spikes = nr_burned_spikes + 1
-            if (i % save_interval == 0):
-                v_series.append(v)
-                f_series.append(nr_spikes*10000/(save_interval*(len(f_series)+1)))
-                if (i > burn_steps and i< burn_steps+stimulus_time_steps):
-                    f_showtime.append(nr_burned_spikes*10000/(save_interval*(len(f_showtime)+1)))
-            v = V_rest
-        else:
-            if (i % save_interval == 0):
-                v_series.append(v)
-                f_series.append(nr_spikes*10000/(save_interval*(len(f_series)+1)))
-                if (i>burn_steps and i< burn_steps+stimulus_time_steps):
-                    f_showtime.append(nr_burned_spikes * 10000 / (save_interval * (len(f_showtime) + 1)))
+        # The None term is added because the arrays in the list
+        # have different sizes.
+        all_isi = np.concatenate(all_isi, axis=None).ravel()
+        both_isi.append(all_isi)
+        both_fs.append(all_fs)
 
+    labels = ['Excitatory', 'Inhibitory']
+    colors = ['tab:orange', 'tab:blue']
 
-    #print("nr spikes = {} in {} s".format(nr_spikes, nr_seconds))
-    print("Neuron output f = {} Hz".format(nr_spikes*1000/(t_end-t_start)))
-    #plt.plot(time_range/1000, v_series)
-    t = np.linspace(0, nr_seconds, len(v_series))
-    plt.plot(t, v_series)
-    plt.xlabel("time (s)")
-    plt.ylabel("v(t)")
-    plt.savefig(name_V)
+    for i, fs in enumerate(both_fs):
+        plt.hist(fs, weights=np.ones_like(fs) / len(fs), label=labels[i], color=colors[i], alpha = 0.8)
+        plt.xlabel("f (Hz)")
+        plt.ylabel("Percent")
+        plt.legend()
+        plt.savefig("Averate firing rates")
     plt.figure()
 
-    #plt.plot(t,f_series)
-    #plt.xlabel("time (s)")
-    #plt.ylabel("f(t)")
-    #plt.title("Neuron output f = {} Hz".format(nr_spikes*1000/(t_end-t_start)))
-    #plt.savefig(name_f)
-    #plt.figure()
+    for i, isi in enumerate(both_isi):
+        plt.hist(isi, weights=np.ones_like(isi) / len(isi), label=labels[i], color=colors[i], alpha = 0.8)
+        plt.xlabel("Time (ms)")
+        plt.ylabel("Percent")
+        plt.legend()
+        plt.savefig("Interspike intervals")
+    plt.figure()
 
-    #plt.plot(np.linspace(80, 100, len(f_showtime)), f_showtime)
-    #plt.xlabel("time (s)")
-    #plt.ylabel("f(t) post burn")
-    #f_post_burn = f_showtime[-1]
-    #plt.title("Neuron output post burn f = {} Hz".format(f_post_burn))
-    #plt.savefig(name_f+"showtime")
-    #plt.figure()
-
-    #f_stim = f_showtime[-1]
-    #plt.hist(v_series)
-    #plt.show()
-    #get_f(v_series=v_series)
-    return f_showtime[-1]
+    for i, isi in enumerate(both_isi):
+        mean = np.mean(isi)
+        cv = np.sqrt((isi - mean) ** 2) / mean
+        plt.hist(cv, weights=np.ones_like(cv) / len(cv), label=labels[i], color=colors[i], alpha = 0.8)
+        plt.ylabel("Percent")
+        plt.legend()
+        plt.savefig("CV of ISI")
+    plt.figure()
 
 
+def evolve_potential_with_inhibition(spikes_ex, spikes_in,
+                                     v = V_rest, g_e = g_0, g_i = g_0_i,
+                                     tau = tau_ref, nr_spikes = 0,
+                                     v_series = [],  I_ex = [], I_in = [],
+                                     w_ex = weight_profiles, w_in = w_inh,
+                                     name_V = "V(t)", name_i = "i(t)",
+                                     to_plot = True, only_f = True, parameter_pass = False):
 
-def evolve_potential_with_inhibition(w = weight_profiles, theta = 0, name_V = "V(t)", name_i = "i(t)", theta_synapse = np.zeros(N_excit_synapses), inh_synapses = np.zeros(N_inhib_synapses)):
-    all_trains, frq = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=theta_synapse))
-    spikes_inh, frq = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=inh_synapses, f_background=f_inhib), f_background=f_inhib, spikes_1= spikes_inh_pre, spikes_2 = spikes_inh_post)
-    #all_trains, frq = generate_spikes_array(N_syn=N_excit_synapses, f_response=np.ones(N_excit_synapses) * 5)
-    #inh_trains, frs_i = generate_spikes_array(N_syn = N_inhib_synapses, f_response=np.ones(N_inhib_synapses) * f_inhib)
-    t_spike_trains = np.transpose(all_trains)
-    t_inhib_trains = np.transpose(spikes_inh)
+    #print("V_in_funct = {}".format(v))
 
-    g = g_0
-    g_i = g_0_i
-    g_series = []
-    v_series = []
-    f_series = []
-    f_showtime = []
-    nr_burned_spikes = 0
-    v = V_rest
-    I_ex = []
-    I_inh = []
-    #for j in range(100):
-    #    w_ex[j] = np.random.lognormal(mean = -2.0, sigma = 0.5, size = 1)
+    initial = len(v_series)
+    t_ex_trains = np.transpose(spikes_ex)
+    t_in_trains = np.transpose(spikes_in)
 
-    nr_spikes = 0
-    for i in range(N_steps):
+    time_steps = len(spikes_ex[0])
 
+    for i in range(time_steps):
+        tau += 1
+        g_e = g_e - g_e * dt / tau_synapse + dt * (np.sum(np.multiply(t_ex_trains[i], w_ex)))
+        g_i = g_i - g_i * dt / tau_i + dt * (np.sum(np.multiply(t_in_trains[i], w_in)))
 
-        g = g - g * dt / tau_synapse + dt * (np.sum(np.multiply(t_spike_trains[i], w)))
-        g_i = g_i - g_i * dt / tau_i + dt * (np.sum(np.multiply(t_inhib_trains[i], w_inh)))
-
-        E_eff = (E_leak + g*E_synapse + g_i * E_inh)/(1 + g + g_i)
-        tau_eff = tau_membrane/(1 + g + g_i)
+        E_eff = (E_leak + g_e * E_synapse + g_i * E_inh)/(1 + g_e + g_i)
+        tau_eff = tau_membrane/(1 + g_e + g_i)
         v = E_eff - (v - E_eff) * np.exp(-dt/tau_eff)
 
-
-        if (v >= V_th):
+        if (v >= V_th) and (tau > tau_ref):
             nr_spikes = nr_spikes + 1
             v = V_spike
-            if (burn_steps and i< burn_steps+stimulus_time_steps): nr_burned_spikes = nr_burned_spikes + 1
+
             if (i % save_interval == 0):
-                I_ex.append(g * (E_synapse - v))
-                I_inh.append(g_i * (E_inh - v))
                 v_series.append(v)
-                f_series.append(nr_spikes*10000/(save_interval*(len(f_series)+1)))
-                if (burn_steps and i< burn_steps+stimulus_time_steps):
-                    f_showtime.append(nr_burned_spikes*10000/(save_interval*(len(f_showtime)+1)))
+                I_ex.append(g_e * (E_synapse - v))
+                I_in.append(g_i * (E_inh - v))
+
             v = V_rest
+            tau = 0
         else:
             if (i % save_interval == 0):
-                I_ex.append(g * (E_synapse - v))
-                I_inh.append(g_i * (E_inh - v))
+                I_ex.append(g_e * (E_synapse - v))
+                I_in.append(g_i * (E_inh - v))
                 v_series.append(v)
-                f_series.append(nr_spikes*10000/(save_interval*(len(f_series)+1)))
-                if (burn_steps and i< burn_steps+stimulus_time_steps): f_showtime.append(nr_burned_spikes * 10000 / (save_interval * (len(f_showtime) + 1)))
+    #print("V_series after = {}".format(len(v_series)))
+    if (len(v_series) == initial):
+         t_f = time_steps * 0.1 / 1000
+         print("only stimulus")
+    else:
+        t_f = (len(v_series) + time_steps)* 0.1 / 1000
 
+    print("Neuron output f = {} Hz".format(nr_spikes/t_f))
 
-    #print("nr spikes = {} in {} s".format(nr_spikes, nr_seconds))
-    print("Neuron output f = {} Hz".format(nr_spikes*1000/(t_end-t_start)))
-    #plt.plot(time_range/1000, v_series)
-    t = np.linspace(0, nr_seconds, len(v_series))
-    #plt.plot(t, v_series)
-    #plt.xlabel("time (s)")
-    #plt.ylabel("v(t)")
-    #plt.savefig(name_V)
-    #plt.figure()
+    if (only_f == True):
+        return nr_spikes / (time_steps * 0.1 / 1000)
+    elif (to_plot == True):
+        # Plotting the trace.
+        t = np.linspace(0, t_f, len(v_series))
 
-    #plt.plot(t, I_inh, label="Inhibitory current", alpha=0.8)
-    #plt.plot(t, I_ex, label="Excitatory current", alpha = 0.4)
-    #plt.xlabel("time (ms)")
-    #plt.ylabel("I(t)")
-    #plt.legend()
-    #plt.title("Neuron output f = {} Hz".format(nr_spikes*1000/(t_end-t_start)))
-    #plt.savefig(name_i)
-    #plt.figure()
+        plt.plot(t, v_series)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Membrane potential (mV)")
+        plt.savefig(name_V)
+        plt.figure()
 
-    #plt.plot(np.linspace(80, 100, len(f_showtime)), f_showtime)
-    #plt.xlabel("time (s)")
-    #plt.ylabel("f(t) post burn")
+        # Plotting the currents.
+        plt.plot(t, I_in, color = "tab:blue", label="Inhibitory current", alpha=0.8)
+        plt.plot(t, I_ex, color = "tab:orange", label="Excitatory current", alpha = 0.4)
+        plt.plot(t, np.asarray(I_in) + np.asarray(I_ex), color = "black", label = "Resulting current", alpha = 0.9)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Membrane currents (nA)")
+        plt.legend()
+        plt.savefig(name_i)
+        plt.figure()
 
-    f_post_burn = f_showtime[-1]
-    #plt.title("Neuron output post burn f = {} Hz".format(f_post_burn))
-    #plt.savefig(name_f+"showtime")
-    #plt.figure()
-    #plt.hist(v_series)
-    #plt.show()
-    #get_f(v_series=v_series)
-    #return nr_spikes*1000/(t_end-t_start)
-    return nr_burned_spikes*1000/stimulus_time_steps
+        return nr_spikes/(time_steps * 0.1 / 1000)
+    elif (parameter_pass == True):
+        return v, g_e, g_i, tau, nr_spikes, v_series, I_ex, I_in
+
 
 def search_bg_weights():
     fs  = []
@@ -513,7 +645,7 @@ def get_f(v_series):
 def plot_f_analytic():
     theta = np.linspace(-np.pi/2, np.pi/2, 100)
     plt.figure()
-    plt.plot(theta*180/np.pi ,get_f_result(theta=theta, theta_synapse=[0]))
+    plt.plot(theta*180/np.pi, get_f_result(theta=theta, theta_synapse=[0]))
     plt.xlabel("$\Delta_{i} = (\\theta - \\theta_{i})$ (deg)")
     plt.ylabel("Firing rate $f_{i}$ (Hz)")
     plt.savefig("analytic_f")
@@ -528,6 +660,36 @@ def get_hist_weights():
     plt.savefig("weight_distrib")
     plt.show()
 
+def show_tuning_curve():
+    bars = 100
+    theta_range = np.linspace((-1) * np.pi/2, np.pi/2, bars)
+
+    f_response = get_fs(theta = 0, theta_synapse = theta_range)
+    plt.figure()
+    plt.plot(theta_range*180/np.pi, f_response)
+    plt.xlabel("$\Delta_{i}$ (deg)")
+    plt.ylabel("Firing rate $f_{i}$ (Hz)")
+    plt.savefig("analytic_f")
+    plt.xlim([-90, 90])
+    plt.show()
+
+def get_output_bkg_stats():
+    fs = []
+    for i in range(50):
+        print(i)
+        spikes_pre = np.random.poisson(lam=f_background * 10e-4 * dt, size=(N_excit_synapses, burn_steps))
+        spikes_inh_pre = np.random.poisson(lam=f_inhib * 10e-4 * dt, size=(N_inhib_synapses, burn_steps))
+        f = evolve_potential_with_inhibition(spikes_pre, spikes_inh_pre)
+        fs.append(f)
+
+
+    # label=labels[i], color=colors[i],
+    plt.hist(fs, weights=np.ones_like(fs) / len(fs),  alpha = 0.8)
+    plt.xlabel("f (Hz)")
+    plt.ylabel("Percent")
+    #plt.legend()
+    plt.savefig("Averate firing rates")
+    plt.figure()
 
 if __name__ == '__main__':
     #print(generate_spikes_array()[1])
@@ -544,5 +706,24 @@ if __name__ == '__main__':
     #get_input_response_for_bar()
     #tune_all_synapses()
     #plot_f_analytic()
-    get_hist_weights()
+    #get_hist_weights()
+    #test_input_spikes(spikes_pre, name = "excitatory", f = np.sum(spikes_pre)/(N_excit_synapses * burn_seconds))
+
+
+    #get_input_f_isi_and_cv(spikes_arrays = [spikes_pre[:, :10000], spikes_inh_pre[:, :10000]])
+    #get_isi(, population= "Inhibitory")
+    #test_input_spikes(spikes_inh_pre, name = "inhibitory", f = np.sum(spikes_inh_pre)/(N_inhib_synapses * burn_seconds))
+
+
+
+
+
+    #print(get_spike_indexes(spikes_pre))
+    #get_spiked_neuron_indexes(get_spike_indexes(spikes_pre))
+    #print(evolve_potential_with_inhibition(spikes_pre, spikes_inh_pre))
+    #get_response_for_bar(trials=5)
+    #get_fs(theta_synapse=tune_all_synapses(N_excit_synapses))
+    #show_tuning_curve()
+    get_response_for_bar(trials=2)
+
 
