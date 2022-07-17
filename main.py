@@ -200,10 +200,10 @@ def get_fs(theta = 1.3, theta_synapse = [0], f_background = f_background):
 def get_response_for_bar(trials = 1):
     bars = 11
     fs_out = np.zeros((trials, bars))
-    tuned_ex_synapses, tuned_in_synapses = tune_all_synapses()
+    mean = np.pi/4
+    tuned_ex_synapses, tuned_in_synapses = tune_all_synapses(mean_ex = mean, mean_in=mean)
     #tuned_in_synapses = tune_all_synapses(N=N_inhib_synapses)
-    bars_range = np.linspace(-90, 90, bars)
-
+    bars_range = np.linspace(mean*180/np.pi-90, mean*180/np.pi+90, bars)
 
     #print(nr_spikes)
 
@@ -214,10 +214,11 @@ def get_response_for_bar(trials = 1):
             to_plot=False, only_f=False, parameter_pass=True)
         print("after int = {}".format(v_spont))
         for i in range(bars):
-            theta = -np.pi/2 + i * np.pi / (bars)
+            theta = mean - np.pi/2 + i * np.pi / (bars)
             #f_response = get_f_result(theta, theta_synapse=0)
             #spikes_ex = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=tuned_ex_synapses))
             #spikes_in = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib), f_background=f_inhib)
+
             spikes_ex = generate_spikes_array(f_response=get_fs(theta=theta, theta_synapse=tuned_ex_synapses))
             spikes_in = generate_spikes_array(
                 f_response=get_fs(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib),
@@ -247,20 +248,32 @@ def get_response_for_bar(trials = 1):
     PO = bars_range[PO_index]
     print(PO)
 
-    plt.errorbar(bars_range, avg, yerr= std, fmt='none', color = 'black')
-    plt.plot(bars_range, avg, marker='o', alpha=0.9, linewidth = "2", markersize = "12",label = "$\langle f \\rangle$", color = 'gray')
-    plt.legend()
-    plt.xlabel("$\\theta$")
-    plt.ylabel("f")
-    #plt.title("Showing a bar of $\\theta$ orientation, 100 tuned synapses at 0 rad with weights = 0.01")
-    plt.savefig("output_f_theta")
-    plt.figure()
+    plot_soma_response(bars_range, avg, std, name = "PO")
 
-    get_PO_vs_weight(tuned_ex_synapses * 180/np.pi-PO, weight_profiles, name = 'exc')
-    get_PO_vs_weight(tuned_in_synapses * 180/np.pi - PO, w_inh, name = 'inh')
+    plot_soma_response(bars_range-PO, avg, std, name="delta_PO")
+
+    plot_PO_vs_weight(tuned_ex_synapses * 180/np.pi-PO, weight_profiles, name = 'exc')
+    plot_PO_vs_weight(tuned_in_synapses * 180/np.pi - PO, w_inh, name = 'inh')
     return avg, std, PO
 
-def get_PO_vs_weight(x, y, name = ''):
+def plot_soma_response(x, y, err, name):
+    if name == 'PO':
+        plt.scatter([x[np.argmax(y)]], [np.min(y)],alpha=1.0, marker='x' , s=50, color = 'tab:red', label ="PO")
+        plt.xlabel("Stimulus of orientation $\\theta$ (deg)")
+    else:
+        plt.xlabel("Pre- and post-synaptic neuron PO difference (deg)")
+    plt.errorbar(x, y, yerr=err, fmt='none', color='black')
+    plt.plot(x, y, marker='o', alpha=0.9, linewidth="2", markersize="12", label="$\langle f \\rangle$",
+             color='gray')
+    plt.legend()
+
+    plt.ylabel("Post-synaptic neuron response firing rate $f$ (Hz)")
+    # plt.title("Showing a bar of $\\theta$ orientation, 100 tuned synapses at 0 rad with weights = 0.01")
+    plt.savefig("output_f_theta_{}".format(name))
+    plt.figure()
+
+
+def plot_PO_vs_weight(x, y, name = ''):
     if name == 'exc':
         plt.scatter(np.abs(x), np.log(y), s = 50, marker='o', alpha=0.9, color = 'tab:orange', label = "Excitatory synapse")
     else:
@@ -271,9 +284,11 @@ def get_PO_vs_weight(x, y, name = ''):
     plt.savefig("PO_vs_weight_{}".format(name))
     plt.figure()
 
+def count_active_synapses(f_active = f_max):
+    return 0
 
 
-def tune_all_synapses(N = N_excit_synapses):
+def tune_all_synapses(mean_ex = 0.0, mean_in = 0.0):
     #tuning_angles = np.random.normal(loc=0.0, scale = 0.55, size=N)
     #tuning_angles = np.random.normal(loc=0.0, scale=np.pi/5, size=N)
 
@@ -289,8 +304,8 @@ def tune_all_synapses(N = N_excit_synapses):
     #    (lower - mu_i) / sigma_i, (upper - mu_i) / sigma_i, loc=mu_i, scale=sigma_i).rvs(N_inhib_synapses)
    # print(tuning_angles_in.rvs(100))
 
-    tuning_angles_ex = np.random.normal(loc=0.0, scale=np.pi / 7, size=N_excit_synapses)
-    tuning_angles_in = np.random.normal(loc=0.0, scale=np.pi / 5, size=N_inhib_synapses)
+    tuning_angles_ex = np.random.normal(loc=mean_ex, scale=np.pi / 7, size=N_excit_synapses)
+    tuning_angles_in = np.random.normal(loc=mean_in, scale=np.pi / 5, size=N_inhib_synapses)
     #tuning_angles_in = np.ones(N_inhib_synapses) * 1.7
 
     #plt.ylabel("Log weights $w_{j}$ (a.u.)")
@@ -574,7 +589,7 @@ def evolve_potential_with_inhibition(spikes_ex, spikes_in,
         # Plotting the currents.
         plt.plot(t, I_in, color = "tab:blue", label="Inhibitory current", alpha=0.8)
         plt.plot(t, I_ex, color = "tab:orange", label="Excitatory current", alpha = 0.4)
-        plt.plot(t, np.asarray(I_in) + np.asarray(I_ex), color = "black", label = "Resulting current", alpha = 0.9)
+        plt.plot(t, np.asarray(I_in) + np.asarray(I_ex), color = "gray", label = "Resulting current", alpha = 0.9)
         plt.xlabel("Time (s)")
         plt.ylabel("Membrane currents (nA)")
         plt.legend()
@@ -724,6 +739,7 @@ if __name__ == '__main__':
     #get_response_for_bar(trials=5)
     #get_fs(theta_synapse=tune_all_synapses(N_excit_synapses))
     #show_tuning_curve()
-    get_response_for_bar(trials=2)
+    get_response_for_bar(trials=5)
+    #tune_all_synapses(mean_ex=np.pi/4, mean_in=np.pi/4)
 
 
