@@ -1,22 +1,30 @@
-import random
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from cycler import cycler
-
 np.random.seed(0)
-#mpl.rcParams['xtick.labelsize'] = 8
-#mpl.rcParams['ytick.labelsize'] = 8
-#mpl.rcParams['lines.linewidth'] = 4
-#mpl.rcParams['lines.markersize'] = 10
-
-#width = 3.487
-#height = width / 1.618
-
-#plt.figure(num=None, figsize=(width, height),  facecolor=None, edgecolor=None, frameon=False)
 
 
+# Parameters used for plotting.
+# No need to change unless the plotting style is suboptimal.
+plt.rcParams.update({
+    "pgf.texsystem": "pdflatex",
+    "pgf.preamble": "\n".join([
+        r"\usepackage[utf8x]{inputenc}",
+        r"\usepackage[T1]{fontenc}",
+        r"\usepackage{cmbright}",
+    ]),
+})
+
+params = {'font.size': 21,
+          'legend.handlelength': 2,
+          'figure.figsize': [10.4, 8.8],
+          'lines.markersize': 20.0,
+          'lines.linewidth': 4.5,
+          'axes.spines.top': False,
+          'axes.spines.right': False
+          # 'lines.dashed_pattern': [3.7, 1.6]
+          }
+plt.rcParams.update(params)
 
 # Neuron Model parameters
 V_th = -50.0 # mV
@@ -53,8 +61,6 @@ weight_profiles = np.random.lognormal(mean = normal_mean, sigma = normal_std, si
 w_inh = np.random.lognormal(mean = normal_mean, sigma = normal_std, size = N_inhib_synapses)
 # The above specific mean and sigma values are chosen s.t. a reasonable background
 # firing rate of the output neuron is obtained. (more details search_bg_weights())
-
-
 f_background = 5 # Hz
 f_max = 10 # Hz
 f_inhib = 5 # Hz
@@ -205,6 +211,14 @@ def get_response_for_bar(trials = 1):
     #tuned_in_synapses = tune_all_synapses(N=N_inhib_synapses)
     bars_range = np.linspace(mean*180/np.pi-90, mean*180/np.pi+90, bars)
 
+    nr_active_ex = np.zeros((trials, bars))
+    w_active_ex = np.zeros((trials, bars))
+    w_avg_ex = np.zeros((trials, bars))
+
+    nr_active_in = np.zeros((trials, bars))
+    w_active_in = np.zeros((trials, bars))
+    w_avg_in = np.zeros((trials, bars))
+
     #print(nr_spikes)
 
     for j in range(trials):
@@ -219,12 +233,16 @@ def get_response_for_bar(trials = 1):
             #spikes_ex = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=tuned_ex_synapses))
             #spikes_in = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib), f_background=f_inhib)
 
-            spikes_ex = generate_spikes_array(f_response=get_fs(theta=theta, theta_synapse=tuned_ex_synapses))
-            spikes_in = generate_spikes_array(
-                f_response=get_fs(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib),
-                f_background=f_inhib)
+            fs_ex = get_fs(theta=theta, theta_synapse=tuned_ex_synapses)
+            fs_in = get_fs(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib)
 
-            if j == 0:
+            spikes_ex, fs_res_ex = generate_spikes_array(fs_ex)
+            spikes_in, fs_res_in = generate_spikes_array(f_response=fs_in, f_background=f_inhib)
+
+            nr_active_ex[j][i], w_active_ex[j][i], w_avg_ex[j][i] = count_active_synapses(fs_res_ex, f_active=7.0, w=weight_profiles)
+            nr_active_in[j][i], w_active_in[j][i], w_avg_in[j][i] = count_active_synapses(fs_res_in, f_active=7.0, w=w_inh)
+
+            if (j == 0) and (i == 0 or i == 3 or i == 5):
                 fs_out[j, i] = evolve_potential_with_inhibition(
                 spikes_ex, spikes_in,
                 v = v_spont, g_e = g_e_spont, g_i = g_i_spont, tau = tau_ref, nr_spikes=0, v_series=[], I_ex = [], I_in=[],
@@ -237,55 +255,150 @@ def get_response_for_bar(trials = 1):
                     parameter_pass=False)
 
             print("f_out = {}".format(fs_out[j,i]))
-        plt.scatter(bars_range, fs_out[j,:], alpha=0.4, color = 'grey')
+        plt.scatter(bars_range, fs_out[j,:], alpha=0.4, color = 'gray')
         plt.savefig("output trial {}".format(j))
     plt.savefig("output_f_theta_all")
 
     avg = np.mean(fs_out, axis=0)
     std = np.std(fs_out, axis=0)
 
+    avg_nr_ex = np.mean(nr_active_ex, axis=0)
+    std_nr_ex = np.std(nr_active_ex, axis=0)
+    avg_nr_in = np.mean(nr_active_in, axis=0)
+    std_nr_in = np.std(nr_active_in, axis=0)
+
+    avg_w_ex = np.mean(w_active_ex, axis=0)
+    std_w_ex = np.std(w_active_ex, axis=0)
+    avg_w_in = np.mean(w_active_in, axis=0)
+    std_w_in = np.std(w_active_in, axis=0)
+
+    avg_w_avg_ex = np.mean(w_avg_ex, axis=0)
+    std_w_avg_ex = np.std(w_avg_ex, axis=0)
+    avg_w_avg_in = np.mean(w_avg_in, axis=0)
+    std_w_avg_in = np.std(w_avg_in, axis=0)
+
+
     PO_index = np.argmax(avg)
     PO = bars_range[PO_index]
     print(PO)
 
-    plot_soma_response(bars_range, avg, std, name = "PO")
-
+    plot_soma_response(bars_range, avg, std, name="PO")
     plot_soma_response(bars_range-PO, avg, std, name="delta_PO")
 
-    plot_PO_vs_weight(tuned_ex_synapses * 180/np.pi-PO, weight_profiles, name = 'exc')
+    plot_fig_3a(bars_range-PO, avg, avg_w_ex, avg_w_in, std, std_w_ex, std_w_in)
+    plot_fig_3b(bars_range-PO,
+                avg_w_avg_ex, avg_nr_ex, std_w_avg_ex, std_nr_ex,
+                avg_w_avg_in, avg_nr_in, std_w_avg_in, std_nr_in)
+
+    #plot_soma_response(bars_range-PO, avg_nr_ex, std_nr_ex, name ="excitatory")
+    #plot_soma_response(bars_range-PO, avg_nr_in, std_nr_in, name="inhibitory")
+    #plot_soma_response(bars_range - PO, avg_w_ex, std_w_ex, name="w_excitatory")
+    #plot_soma_response(bars_range - PO, avg_w_in, std_w_in, name="w_inhibitory")
+    #plot_soma_response(bars_range - PO, avg_w_avg_ex, std_w_avg_ex, name="avg_w_excitatory")
+    #plot_soma_response(bars_range - PO, avg_w_avg_in, std_w_avg_in, name="avg_w_inhibitory")
+
+    plot_PO_vs_weight(tuned_ex_synapses * 180/np.pi - PO, weight_profiles, name = 'exc')
     plot_PO_vs_weight(tuned_in_synapses * 180/np.pi - PO, w_inh, name = 'inh')
     return avg, std, PO
 
 def plot_soma_response(x, y, err, name):
     if name == 'PO':
-        plt.scatter([x[np.argmax(y)]], [np.min(y)],alpha=1.0, marker='x' , s=50, color = 'tab:red', label ="PO")
+        plt.scatter([x[np.argmax(y)]], [np.min(y)], alpha=1.0, marker='x' , s=50, color = 'tab:red', label ="PO")
+        plt.text(x[np.argmax(y)]+2, np.min(y), s = "{} deg".format(x[np.argmax(y)]))
         plt.xlabel("Stimulus of orientation $\\theta$ (deg)")
+        plt.ylabel("Post-synaptic neuron response firing rate $f$ (Hz)")
+        ax = plt.gca()
+        ax2 = ax.twinx()
+        ax2.spines.right.set_visible(True)
+        ax2.set_ylabel("Individual trials $f$ (Hz)")
+        ax2.yaxis.label.set_color('gray')
+
+    elif name == "delta_PO":
+        plt.xlabel("Pre- and post-synaptic neuron PO difference (deg)")
+        plt.ylabel("Post-synaptic neuron response firing rate $f$ (Hz)")
+        #plt.plot(x, nr_active, label = "Number of active synapses")
     else:
         plt.xlabel("Pre- and post-synaptic neuron PO difference (deg)")
+        plt.ylabel("Number of active {} synapses (Hz)".format(name))
+    plt.plot(x, y, marker='o', alpha=0.9, linewidth="2", markersize="20", label="$\langle f \\rangle$",
+             color='gray', markeredgewidth=1.5, markeredgecolor = "black")
     plt.errorbar(x, y, yerr=err, fmt='none', color='black')
-    plt.plot(x, y, marker='o', alpha=0.9, linewidth="2", markersize="12", label="$\langle f \\rangle$",
-             color='gray')
+
     plt.legend()
 
-    plt.ylabel("Post-synaptic neuron response firing rate $f$ (Hz)")
     # plt.title("Showing a bar of $\\theta$ orientation, 100 tuned synapses at 0 rad with weights = 0.01")
     plt.savefig("output_f_theta_{}".format(name))
     plt.figure()
 
+def plot_fig_3a(x, y1, y2, y3, std1, std2, std3):
+    plt.plot(x, y1, marker='o', alpha=0.9, linewidth="2", markersize="20", label="$\langle f \\rangle$",
+             color='gray', markeredgewidth=1.5, markeredgecolor="black")
+    plt.errorbar(x, y1, yerr=std1, fmt='none', color='black', barsabove = True)
+    plt.xlabel("Pre- and post-synaptic neuron PO difference (deg)")
+    plt.ylabel("Post-synaptic neuron response firing rate $f$ (Hz)")
+    ax = plt.gca()
+    ax2 = ax.twinx()
+    ax2.plot(x, y2, marker='o' ,alpha=0.9, linewidth="2", markersize="20", label="Excitatory $W_{E}$",
+             color='tab:orange', markeredgewidth=1.5, markeredgecolor="black")
+    ax2.errorbar(x, y2, yerr=std2, fmt='none', color='tab:red', barsabove = True)
+    ax2.plot(x, y3, marker='o', alpha=0.9, linewidth="2", markersize="20", label="Inhibitory $W_{I}$",
+             color='tab:blue', markeredgewidth=1.5, markeredgecolor="black")
+    ax2.errorbar(x, y3, yerr=std3, fmt='none', color='blue', barsabove = True)
+    ax2.set_ylabel("Cumulative weight of active synapses $W_{P}$")
+    ax2.spines.right.set_visible(True)
+    plt.legend()
+    plt.savefig("fig3a")
+    plt.figure()
+
+def plot_fig_3b(x, y1, y2, std1, std2, y3, y4, std3, std4):
+    plt.plot(x, np.log(y1), marker='o', alpha=0.9, linewidth="2", markersize="20", label="Average weight",
+             color='tab:gray', markeredgewidth=1.5, markeredgecolor="red")
+    plt.errorbar(x, np.log(y1), yerr=np.log(std1), fmt='none', color='gray', barsabove=True)
+    plt.xlabel("Pre- and post-synaptic neuron PO difference (deg)")
+    plt.ylabel("Average weight of active synapses (log)")
+    ax = plt.gca()
+    ax.yaxis.label.set_color('tab:gray')
+    ax2 = ax.twinx()
+    ax2.plot(x, y2, marker='o', alpha=0.9, linewidth="2", markersize="20", label="$N$",
+            color='tab:orange', markeredgewidth=1.5, markeredgecolor="black")
+    ax2.errorbar(x, y2, yerr=std2, fmt='none', color='tab:red', barsabove=True)
+    ax2.set_ylabel("Number of active synapses")
+    ax2.yaxis.label.set_color('tab:orange')
+    ax2.spines.right.set_visible(True)
+    plt.savefig("fig3b_ex")
+    plt.figure()
+
+    plt.plot(x, np.log(y3), marker='o', alpha=0.9, linewidth="2", markersize="20", label="Average weight",
+             color='tab:gray', markeredgewidth=1.5, markeredgecolor="blue")
+    plt.errorbar(x, np.log(y3), yerr=np.log(std3), fmt='none', color='gray', barsabove=True)
+    plt.xlabel("Pre- and post-synaptic neuron PO difference (deg)")
+    plt.ylabel("Average weight of active synapses (log)")
+    ax = plt.gca()
+    ax.yaxis.label.set_color('tab:gray')
+    ax2 = ax.twinx()
+    ax2.plot(x, y4, marker='o', alpha=0.9, linewidth="2", markersize="20", label="$N$",
+             color='tab:blue', markeredgewidth=1.5, markeredgecolor="black")
+    ax2.errorbar(x, y4, yerr=std4, fmt='none', color='blue', barsabove=True)
+    ax2.set_ylabel("Number of active synapses")
+    ax2.yaxis.label.set_color('tab:blue')
+    ax2.spines.right.set_visible(True)
+    plt.savefig("fig3b_inh")
+    plt.figure()
 
 def plot_PO_vs_weight(x, y, name = ''):
     if name == 'exc':
-        plt.scatter(np.abs(x), np.log(y), s = 50, marker='o', alpha=0.9, color = 'tab:orange', label = "Excitatory synapse")
+        plt.scatter(np.abs(x), np.log(y), s = 80, marker='o', alpha=0.9, color = 'tab:orange', label = "Excitatory synapse")
     else:
-        plt.scatter(np.abs(x), np.log(y), s = 50, marker='o', alpha=0.9, color = 'tab:blue',  label = "Inhibitory synapse")
+        plt.scatter(np.abs(x), np.log(y), s = 80, marker='o', alpha=0.9, color = 'tab:blue',  label = "Inhibitory synapse")
     plt.xlabel("Pre- and post-synaptic neuron PO difference")
-    plt.ylabel("Synaptic weight")
+    plt.ylabel("Log(Synaptic weight)")
     plt.legend()
     plt.savefig("PO_vs_weight_{}".format(name))
     plt.figure()
 
-def count_active_synapses(f_active = f_max):
-    return 0
+def count_active_synapses(f_array = np.linspace(0,20,20), f_active = f_max, w = weight_profiles):
+    n = np.argwhere(f_array > f_active).ravel()
+    return len(n), np.sum(w[n]), np.average(w[n])
 
 
 def tune_all_synapses(mean_ex = 0.0, mean_in = 0.0):
@@ -399,9 +512,13 @@ def generate_spikes_array(f_response = np.ones(N_excit_synapses) * f_background,
                 f_response[i] = f_background
 
         spikes_stimulus = np.zeros((len(f_response), stimulus_time_steps))
+        fs = np.zeros(len(f_response))
 
         for i in range(len(f_response)):
-           spikes_stimulus[i, :] = np.random.poisson(lam=f_response[i] * 10e-4 * dt, size= (1, stimulus_time_steps))
+            train = np.random.poisson(lam=f_response[i] * 10e-4 * dt, size= (1, stimulus_time_steps))
+            fs[i] = len(np.nonzero(train)[0]) / stimulus_seconds
+            spikes_stimulus[i] = train
+
 
         #f_spikes_stimulus = np.sum(spikes_stimulus, axis=1) / (stimulus_seconds)
 
@@ -417,7 +534,7 @@ def generate_spikes_array(f_response = np.ones(N_excit_synapses) * f_background,
                # spikes[j, burn_steps + i] = np.random.poisson(lam=f_response[2] * 10e-4 * dt)
     #return spikes, np.sum(spikes[0, burn_steps:burn_steps + stimulus_time_steps]) / (stimulus_seconds)
         #return spikes_stimulus, f_spikes_stimulus
-        return spikes_stimulus
+        return spikes_stimulus, fs
     else:
         raise ValueError("Each synapse must have a corresponding frequency. i.e. size(f_response) = Nr exitatory synapses")
 
@@ -587,9 +704,9 @@ def evolve_potential_with_inhibition(spikes_ex, spikes_in,
         plt.figure()
 
         # Plotting the currents.
-        plt.plot(t, I_in, color = "tab:blue", label="Inhibitory current", alpha=0.8)
-        plt.plot(t, I_ex, color = "tab:orange", label="Excitatory current", alpha = 0.4)
-        plt.plot(t, np.asarray(I_in) + np.asarray(I_ex), color = "gray", label = "Resulting current", alpha = 0.9)
+        plt.plot(t, I_in, color = "tab:blue", label="Inhibitory current", alpha=0.9)
+        plt.plot(t, I_ex, color = "tab:orange", label="Excitatory current", alpha = 0.9)
+        plt.plot(t, np.asarray(I_in) + np.asarray(I_ex), color = "gray", label = "Net current", alpha = 1.0)
         plt.xlabel("Time (s)")
         plt.ylabel("Membrane currents (nA)")
         plt.legend()
@@ -707,6 +824,9 @@ def get_output_bkg_stats():
     plt.figure()
 
 if __name__ == '__main__':
+
+
+
     #print(generate_spikes_array()[1])
     #evolve_potential()
     #evolve_potential(f_response=50)
@@ -741,5 +861,6 @@ if __name__ == '__main__':
     #show_tuning_curve()
     get_response_for_bar(trials=5)
     #tune_all_synapses(mean_ex=np.pi/4, mean_in=np.pi/4)
+    #count_active_synapses(f_array=np.linspace(0, 20, 20), f_active=f_max)
 
 
