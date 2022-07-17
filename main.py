@@ -50,15 +50,24 @@ N_excit_synapses = N_synapses - N_inhib_synapses
 
 mu = 0.12
 sigma = np.sqrt(mu)
-#mu, sigma = 0.015, np.sqrt(0.015)
+
 normal_std = np.sqrt(np.log(1 + (sigma/mu)**2))
 normal_mean = np.log(mu) - normal_std**2 / 2
 
-#weight_profiles = np.random.lognormal(mean = -2.0, sigma = 0.5, size = N_excit_synapses)
-#w_inh = (-1) * np.ones(N_inhib_synapses)*(0.001)
-#w_inh = (-1) * np.ones(N_inhib_synapses)*(0.015)
 weight_profiles = np.random.lognormal(mean = normal_mean, sigma = normal_std, size = N_excit_synapses)
 w_inh = np.random.lognormal(mean = normal_mean, sigma = normal_std, size = N_inhib_synapses)
+
+# uniform distrib for weights has worked
+#mu = 0.25
+#weight_profiles = np.ones(N_excit_synapses) * mu
+#w_inh = np.ones(N_inhib_synapses) * mu
+
+# gaussian distrib for weights has worked as well
+#mu = 0.07
+#sigma = np.sqrt(mu)
+#weight_profiles = np.random.normal( loc = mu, scale = sigma, size = N_excit_synapses)
+#w_inh = np.random.normal(loc = mu, scale = sigma, size = N_inhib_synapses)
+
 # The above specific mean and sigma values are chosen s.t. a reasonable background
 # firing rate of the output neuron is obtained. (more details search_bg_weights())
 f_background = 5 # Hz
@@ -239,8 +248,8 @@ def get_response_for_bar(trials = 1):
             spikes_ex, fs_res_ex = generate_spikes_array(fs_ex)
             spikes_in, fs_res_in = generate_spikes_array(f_response=fs_in, f_background=f_inhib)
 
-            nr_active_ex[j][i], w_active_ex[j][i], w_avg_ex[j][i] = count_active_synapses(fs_res_ex, f_active=7.0, w=weight_profiles)
-            nr_active_in[j][i], w_active_in[j][i], w_avg_in[j][i] = count_active_synapses(fs_res_in, f_active=7.0, w=w_inh)
+            nr_active_ex[j][i], w_active_ex[j][i], w_avg_ex[j][i] = count_active_synapses(fs_res_ex, f_active=f_max-1, w=weight_profiles)
+            nr_active_in[j][i], w_active_in[j][i], w_avg_in[j][i] = count_active_synapses(fs_res_in, f_active=f_max-1, w=w_inh)
 
             if (j == 0) and (i == 0 or i == 3 or i == 5):
                 fs_out[j, i] = evolve_potential_with_inhibition(
@@ -435,8 +444,8 @@ def tune_all_synapses(mean_ex = 0.0, mean_in = 0.0):
     low_bound = np.min([np.min(tuning_angles_ex), np.min(tuning_angles_in)]) * 180/np.pi
     up_bound = np.max([np.max(tuning_angles_ex),np.max(tuning_angles_in)]) * 180/np.pi
     shift = (up_bound-low_bound)/(2*len(diff))
-    plt.plot(np.linspace(shift+low_bound, up_bound-shift, len(diff)),
-                diff, marker = 'o', markersize = 12, color = 'grey', label = "$N_{E}-N_{I}$" )
+    plt.plot(np.linspace(low_bound-shift, up_bound-shift, len(diff)),
+                diff, marker = 'o', markersize = 30, color = 'grey', label = "$N_{E}-N_{I}$" )
     plt.xlabel("Tuning orientation $\\theta_{j}$ (deg)")
     #plt.xlim([-95,95])
     plt.legend()
@@ -749,30 +758,6 @@ def search_bg_weights():
     #plt.hist(fs[1:])
     #plt.figure()
 
-def get_f(v_series):
-    '''
-    Doesn't work if you're not saving v at every time step -> REDO/FIX
-    :param v_series:
-    :return:
-    '''
-    step_box = 100 # time steps -> f(t in s ) -> 1 s
-    time_box = step_box * dt
-    len_boxes = int(len(v_series)/step_box)
-
-    f_series = []
-    spike_nr = 0
-    for j in range(1,len_boxes+1):
-        for i in range(step_box):
-            if (v_series[ (j-1) * step_box + i] == 0):
-                spike_nr += 1
-        f_series.append(spike_nr*10000/(step_box*j))
-
-    plt.plot(np.linspace(1,t_end/(1000),len_boxes),f_series, label=" $\langle f \ (T) \\rangle \ =$ {} Hz".format(spike_nr/1000))
-    plt.ylabel("$\langle f \ (t) \\rangle$ (Hz)")
-    plt.xlabel("t (s)")
-    plt.legend()
-    plt.show()
-
 
 def plot_f_analytic():
     theta = np.linspace(-np.pi/2, np.pi/2, 100)
@@ -811,17 +796,18 @@ def get_output_bkg_stats():
         print(i)
         spikes_pre = np.random.poisson(lam=f_background * 10e-4 * dt, size=(N_excit_synapses, burn_steps))
         spikes_inh_pre = np.random.poisson(lam=f_inhib * 10e-4 * dt, size=(N_inhib_synapses, burn_steps))
-        f = evolve_potential_with_inhibition(spikes_pre, spikes_inh_pre)
+        f = evolve_potential_with_inhibition(spikes_pre, spikes_inh_pre, only_f=True)
         fs.append(f)
 
 
     # label=labels[i], color=colors[i],
-    plt.hist(fs, weights=np.ones_like(fs) / len(fs),  alpha = 0.8)
+    plt.hist(fs, weights=np.ones_like(fs) / len(fs),  alpha = 0.8, color="gray")
     plt.xlabel("f (Hz)")
     plt.ylabel("Percent")
     #plt.legend()
     plt.savefig("Averate firing rates")
     plt.figure()
+
 
 if __name__ == '__main__':
 
@@ -859,8 +845,10 @@ if __name__ == '__main__':
     #get_response_for_bar(trials=5)
     #get_fs(theta_synapse=tune_all_synapses(N_excit_synapses))
     #show_tuning_curve()
-    get_response_for_bar(trials=5)
+    get_response_for_bar(trials=3)
     #tune_all_synapses(mean_ex=np.pi/4, mean_in=np.pi/4)
     #count_active_synapses(f_array=np.linspace(0, 20, 20), f_active=f_max)
+    #show_tuning_curve()
+
 
 
