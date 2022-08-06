@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from scipy.stats import truncnorm
+from matplotlib.ticker import ScalarFormatter
+from matplotlib.axis import Axis
 
 import matplotlib.pyplot as plt
 
@@ -12,8 +14,8 @@ import seaborn as sns
 #np.random.seed(0)
 
 sns.set()
-sns.set(font_scale = 2)
-sns.set_style("white")
+
+
 # Parameters used for plotting.
 # No need to change unless the plotting style is suboptimal.
 plt.rcParams.update({
@@ -25,18 +27,30 @@ plt.rcParams.update({
     ]),
 })
 
+sns.set(font_scale = 2.5)
+sns.set_style("white")
+
 params = {'font.size': 21,
           'legend.handlelength': 2,
-          'legend.frameon': True,
+          'legend.frameon': False,
           'legend.framealpha': 0.5,
           'figure.figsize': [10.4, 8.8],
           'lines.markersize': 20.0,
-          'lines.linewidth': 4.5,
+          'lines.linewidth': 3.5,
+          'axes.linewidth': 3.5,
+          'xtick.major.width': 3.5,
+          'xtick.minor.width': 3.5,
+          'ytick.major.width': 3.5,
+          'ytick.minor.width': 3.5,
           'axes.spines.top': False,
           'axes.spines.right': False,
+
+          'font.family': ['sans-serif'],
+          'figure.autolayout': True
           # 'lines.dashed_pattern': [3.7, 1.6]
           }
 plt.rcParams.update(params)
+
 # Neuron Model parameters
 V_th = -50.0 # mV
 V_rest = -70.0 # mV
@@ -61,10 +75,21 @@ N_excit_synapses = N_synapses - N_inhib_synapses
 
 #mu = 0.5
 #mu = 0.4
+
+# OS from numbers
 mu = 0.29
 sigma = np.sqrt(mu)
 
-lower, upper = 1.0, 1.7
+lower, upper = 1.1, 1.6
+
+# OS from indiv w
+
+mu = 0.29
+sigma = np.sqrt(mu)
+
+lower, upper = 1.1, 1.6
+
+
 normal_lower = np.log(lower)
 normal_upper = np.log(upper)
 normal_std = np.sqrt(np.log(1 + (sigma/mu)**2))
@@ -105,7 +130,9 @@ t_end = nr_seconds * 1000 # ms
 #dt = (t_end - t_start)/N_steps # time step width
 time_range = np.linspace(t_start, t_end, N_steps)
 save_interval = 10 # for dt = 0.1 save every 100 ms
-tau_ref = int(5/dt)
+save_zoom_interval = 500 #
+tau_ref = int(50/dt)
+
 
 burn_seconds = int(nr_seconds/2)
 burn_steps = int(burn_seconds * 1000 / dt) # steps or 20 seconds or 20000 ms
@@ -240,19 +267,41 @@ def try_multiple_neurons(n=2):
     PO = np.zeros(n)
     viridis = cm.get_cmap('viridis', n)
 
+
     for j in range(n):
         print("Neuron nr: {}.".format(j))
-        x_axis, f[j], f_std[j], PO[j] = get_response_for_bar(trials=5, to_plot=False, color_neuron=viridis(j))
+        x_axis, f[j], f_std[j], PO[j], all_spikes = get_response_for_bar(trials=1, to_plot=False, mean = j % 2 * np.pi/2)
+        print(f[j])
+        numpy.savetxt("neuron{}".format(j), f[j])
 
-    plot_soma_response(x=x_axis, y=np.mean(f,axis=0), err=np.sqrt(np.sum(np.square(f_std),axis=0))/n, name="PO", PO = [np.average(PO),np.std(PO)])
-    print(str(np.average(PO))+" "+str(np.std(PO)))
+    #plot_soma_response(x=x_axis, y=np.mean(f,axis=0), err=np.sqrt(np.sum(np.square(f_std),axis=0))/n, name="PO", PO = [np.average(PO),np.std(PO)])
+    #print(str(np.average(PO))+" "+str(np.std(PO)))
 
-def get_response_for_bar(trials = 1, to_plot = True, color_neuron = 'gray', test_EI = False, std_ex = np.pi / 7, std_in = np.pi / 5, homogeneous = False, mean = 0):
+def generate_weights():
+    global weight_profiles, w_inh
+
+    # weight_profiles = np.random.lognormal(mean=normal_mean, sigma=normal_std, size=N_excit_synapses)
+    # w_inh = np.random.lognormal(mean=normal_mean, sigma=normal_std, size=N_inhib_synapses)
+
+    # X = truncnorm((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
+
+    # plt.hist(weight_profiles)
+    # plt.show()
+
+    weight_profiles = np.log(X.rvs(N_excit_synapses))
+   # weight_profiles = 2*gaussian(np.linspace(-1.5, 1.5, num=N_excit_synapses), mu=0.0, sig=0.5)
+    w_inh = np.log(X.rvs(N_inhib_synapses))
+
+    return weight_profiles, w_inh
+
+
+def get_response_for_bar(trials = 1, to_plot = True, color_neuron = 'gray', test_EI = False, std_ex = np.pi / 9, std_in = np.pi / 5, homogeneous = False, mean = 0):
     bars = 11
     fs_out = np.zeros((trials, bars))
     #mean = np.pi / 4
     #tuned_in_synapses = tune_all_synapses(N=N_inhib_synapses)
-    bars_range = np.linspace(mean*180/np.pi-90, mean*180/np.pi+90, bars)
+    #bars_range = np.linspace(mean*180/np.pi-90, mean*180/np.pi+90, bars)
+    bars_range = np.linspace( - 90, 90, bars)
 
     nr_active_ex = np.zeros((trials, bars))
     w_active_ex = np.zeros((trials, bars))
@@ -274,32 +323,33 @@ def get_response_for_bar(trials = 1, to_plot = True, color_neuron = 'gray', test
     #normal_std = np.sqrt(np.log(1 + (sigma / mu) ** 2))
     #normal_mean = np.log(mu) - normal_std ** 2 / 2
 
-    global weight_profiles, w_inh
 
-    #weight_profiles = np.random.lognormal(mean=normal_mean, sigma=normal_std, size=N_excit_synapses)
-    #w_inh = np.random.lognormal(mean=normal_mean, sigma=normal_std, size=N_inhib_synapses)
-
-    #X = truncnorm((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
-
-    #plt.hist(weight_profiles)
-    #plt.show()
-
-    weight_profiles = np.log(X.rvs(N_excit_synapses))
-    w_inh = np.log(X.rvs(N_inhib_synapses))
 
     all_spikes = []
     #plt.hist(weight_profiles)
     #plt.show()
     #print(nr_spikes)
 
+
     for j in range(trials):
         print("trial {}".format(j))
+        weight_profiles, w_inh = generate_weights()
+        #print(np.shape(weight_profiles))
+        #weight_profiles= np.sort(weight_profiles)
+        #w1 = weight_profiles[:int(N_excit_synapses/2)]
+        #w2 = np.flip(weight_profiles[int(N_excit_synapses/2):])
+        #weight_profiles = np.block([w1,w2])
+        #print(np.shape(weight_profiles))
+
+
+
         v_spont, g_e_spont, g_i_spont, tau_spont, nr_spikes_spont, v_series_spont, I_ex_spont, I_in_spont = evolve_potential_with_inhibition(
             spikes_ex=spikes_pre, spikes_in=spikes_inh_pre,
             to_plot=False, only_f=False, parameter_pass=True)
         print("after int = {}".format(v_spont))
         for i in range(bars):
-            theta = mean - np.pi/2 + i * np.pi / (bars)
+            #theta = mean - np.pi/2 + i * np.pi / (bars)
+            theta = - np.pi/2 + i * np.pi / (bars)
             #f_response = get_f_result(theta, theta_synapse=0)
             #spikes_ex = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=tuned_ex_synapses))
             #spikes_in = generate_spikes_array(f_response=get_f_result(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib), f_background=f_inhib)
@@ -335,7 +385,7 @@ def get_response_for_bar(trials = 1, to_plot = True, color_neuron = 'gray', test
 
 
             print("f_out = {}".format(fs_out[j,i]))
-        plt.scatter(bars_range, fs_out[j,:], alpha=0.4, color = color_neuron)
+        plt.scatter(bars_range, fs_out[j,:], alpha=0.2, color = color_neuron)
         #plt.savefig("output trial {}".format(j))
     #plt.savefig("output_f_theta_all")
 
@@ -363,11 +413,16 @@ def get_response_for_bar(trials = 1, to_plot = True, color_neuron = 'gray', test
 
         plot_soma_response(bars_range, avg, std, name="PO")
         plot_soma_response(bars_range-PO, avg, std, name="delta_PO")
+        #plot_soma_response(PO - bars_range, avg, std, name="delta_PO")
 
         plot_fig_3a(bars_range-PO, avg, avg_w_ex, avg_w_in, std, std_w_ex, std_w_in)
+        #plot_fig_3a(PO-bars_range, avg, avg_w_ex, avg_w_in, std, std_w_ex, std_w_in)
         plot_fig_3b(bars_range-PO,
                     avg_w_avg_ex, avg_nr_ex, std_w_avg_ex, std_nr_ex,
                     avg_w_avg_in, avg_nr_in, std_w_avg_in, std_nr_in)
+        #plot_fig_3b(PO-bars_range,
+        #            avg_w_avg_ex, avg_nr_ex, std_w_avg_ex, std_nr_ex,
+        #            avg_w_avg_in, avg_nr_in, std_w_avg_in, std_nr_in)
 
         plot_PO_vs_weight(tuned_ex_synapses * 180/np.pi - PO, weight_profiles, name = 'exc')
         plot_PO_vs_weight(tuned_in_synapses * 180/np.pi - PO, w_inh, name = 'inh')
@@ -380,98 +435,118 @@ def plot_soma_response(x, y, err, name, PO = []):
             plt.text(PO[0] + 2, np.min(y), s="{} $\pm$ {:.2f} deg".format(PO[0], PO[1]))
         else:
             plt.text(x[np.argmax(y)]+2, np.min(y), s = "{} deg".format(x[np.argmax(y)]))
-        plt.xlabel("Stimulus of orientation $\\theta$ (deg)")
-        plt.ylabel("Postsynaptic neuron $f$ (Hz)")
-        ax = plt.gca()
-        ax2 = ax.twinx()
-        ax2.spines.right.set_visible(True)
-        ax2.set_ylabel("Individual trials $f$ (Hz)")
-        ax2.yaxis.label.set_color('gray')
+        plt.xlabel("Stimulus $\\theta$ (deg)")
+        plt.ylabel("Postsynaptic $f$ (Hz)")
+        #ax = plt.gca()
+        #ax2 = ax.twinx()
+        #ax2.spines.right.set_visible(True)
+        #ax2.set_ylabel("Individual trials $f$ (Hz)")
+        #ax2.yaxis.label.set_color('gray')
 
     elif name == "delta_PO":
         plt.xlabel("PO difference (deg)")
-        plt.ylabel("Postsynaptic neuron $f$ (Hz)")
+        plt.ylabel("Postsynaptic $f$ (Hz)")
         #plt.plot(x, nr_active, label = "Number of active synapses")
     else:
         plt.xlabel("PO difference (deg)")
-        plt.ylabel("Number of active {} synapses (Hz)".format(name))
+        plt.ylabel("Number of active {} synapses (Hz)".format(name), labelpad = 2)
     plt.plot(x, y, marker='o', alpha=0.9, linewidth="2", markersize="20", label="$\langle f \\rangle$",
-             color='gray', markeredgewidth=1.5, markeredgecolor = "black")
+             color='gray', markeredgewidth=1.5)
     #plt.errorbar(x, y, yerr=err, fmt='none', color='black')
     plt.fill_between(x, y - err, y + err, alpha=0.3, color='gray')
 
-    plt.legend()
+    #plt.legend()
 
     # plt.title("Showing a bar of $\\theta$ orientation, 100 tuned synapses at 0 rad with weights = 0.01")
+    plt.locator_params(axis='y', nbins=5)
     plt.savefig("output_f_theta_{}.svg".format(name))
     plt.figure()
 
 def plot_fig_3a(x, y1, y2, y3, std1, std2, std3):
-    plt.plot(x, y1, marker='o', alpha=1.0, linewidth="2", markersize="20", label="Output f",
+    plt.plot(x, y1, marker='o', alpha=1.0, linewidth="2", markersize="20", label="$f$",
              color='gray', markeredgewidth=1.5, markeredgecolor="gray")
     #plt.errorbar(x, y1, yerr=std1, fmt='none', color='black', barsabove = True)
     plt.fill_between(x, y1 - std1, y1 + std1, alpha = 0.3, color='gray')
 
     plt.xlabel("PO difference (deg)")
-    plt.ylabel("Postsynaptic neuron $f$ (Hz)")
+    plt.ylabel("Postsynaptic $f$ (Hz)")
+
     ax = plt.gca()
-    ax.yaxis.label.set_color('gray')
+    #ax.yaxis.label.set_color('gray')
     ax2 = ax.twinx()
-    ax2.plot(x, y2, marker='D' ,alpha=0.9, linewidth="2", markersize="20", label="Excitatory",
+    ax2.plot(x, y2, marker='D' ,alpha=0.9, linewidth="2", markersize="20", label="$W_{E}$",
              color='tab:orange', markeredgewidth=1.5, markeredgecolor="tab:orange")
     ax2.fill_between(x, y2 - std2, y2 + std2, alpha=0.3, color='tab:orange')
     #ax2.errorbar(x, y2, yerr=std2, fmt='none', color='tab:red', barsabove = True)
-    ax2.plot(x, y3, marker='D', alpha=0.9, linewidth="2", markersize="20", label="Inhibitory",
+    ax2.plot(x, y3, marker='D', alpha=0.9, linewidth="2", markersize="20", label="$W_{I}$",
              color='tab:blue', markeredgewidth=1.5, markeredgecolor="tab:blue")
     ax2.fill_between(x, y3 - std3, y3 + std3, alpha=0.3, color='tab:blue')
     #ax2.errorbar(x, y3, yerr=std3, fmt='none', color='blue', barsabove = True)
-    ax2.set_ylabel("Cumulative weight of active synapses")
+    ax2.set_ylabel("Cumulative $W$ (a.u)")
     ax2.spines.right.set_visible(True)
-    plt.savefig("fig3a.svg")
+    plt.locator_params(axis='y', nbins=5)
+    #plt.xlim([-95,95])
     plt.legend()
+    plt.savefig("fig3a.svg")
     plt.figure()
 
 def plot_fig_3b(x, y1, y2, std1, std2, y3, y4, std3, std4):
     #plt.plot(x, np.log(y1), marker='D', alpha=0.9, linewidth="2", markersize="20", label="Median weight",
     #        color='gray', markeredgewidth=1.5, markeredgecolor="gray")
     #plt.fill_between(x, np.log(y1 - std1), np.log(y1 + std1), alpha=0.3, color='gray')
-    plt.plot(x, y1, marker='D', alpha=0.9, linewidth="2", markersize="20", label="Median weight", color='gray', markeredgewidth=1.5, markeredgecolor="gray")
+    plt.plot(x, y1, marker='D', alpha=0.9, linewidth="2", markersize="20", label="$w$", color='gray', markeredgewidth=1.5, markeredgecolor="gray")
     # plt.errorbar(x, np.log(y1), yerr=np.log(std1), fmt='none', color='gray', barsabove=True)
     plt.fill_between(x, y1 - std1, y1 + std1, alpha=0.3, color='gray')
     plt.xlabel("PO difference (deg)")
-    plt.ylabel("Median weight of active synapses")
+    plt.ylabel("Individual $\langle w \\rangle$ (a.u.)")
+    #plt.legend()
+    plt.locator_params(axis='y', nbins=5)
     ax = plt.gca()
+    #plt.yscale('log')
+    #Axis.set_minor_formatter(ax.yaxis, ScalarFormatter())
+    #ax.ticklabel_format(style='sci')
     ax.yaxis.label.set_color('gray')
     ax2 = ax.twinx()
-    ax2.plot(x, y2, marker='H', alpha=0.9, linewidth="2", markersize="20", label="$N$", color='tab:orange', markeredgewidth=1.5)
+    #ax.set_yscale('log')
+    ax2.plot(x, y2, marker='H', alpha=0.9, linewidth="2", markersize="20", label="$N_{E}$", color='tab:orange', markeredgewidth=1.5)
     ax2.fill_between(x, y2 - std2, y2 + std2, alpha=0.3, color='tab:orange')
     #ax2.errorbar(x, y2, yerr=std2, fmt='none', color='tab:orange', barsabove=True)
-    ax2.set_ylabel("Number of active synapses")
+    ax2.set_ylabel("# Active synapses")
     ax2.yaxis.label.set_color('tab:orange')
     ax2.spines.right.set_visible(True)
+    plt.locator_params(axis='y', nbins=5)
+    #plt.xlim([-95, 95])
+    #plt.legend()
     plt.savefig("fig3b_ex.svg")
-    plt.legend()
     plt.figure()
 
     #plt.plot(x, np.log(y3), marker='D', alpha=0.9, linewidth="2", markersize="20", label="Average weight", color='gray', markeredgewidth=1.5, markeredgecolor="gray")
     #plt.errorbar(x, np.log(y3), yerr=np.log(std3), fmt='none', color='gray', barsabove=True)
     #plt.fill_between(x, np.log(y3 - std3), np.log(y3 + std3), alpha=0.3, color='gray')
-    plt.plot(x, y3, marker='D', alpha=0.9, linewidth="2", markersize="20", label="Average weight",color='gray', markeredgewidth=1.5, markeredgecolor="gray")
+    plt.plot(x, y3, marker='D', alpha=0.9, linewidth="2", markersize="20", label="$w$",color='gray', markeredgewidth=1.5, markeredgecolor="gray")
     #plt.errorbar(x, np.log(y3), yerr=np.log(std3), fmt='none', color='gray', barsabove=True)
     plt.fill_between(x, y3 - std3, y3 + std3, alpha=0.3, color='gray')
 
     plt.xlabel("PO difference (deg)")
-    plt.ylabel("Median weight of active synapses")
+    plt.ylabel("Individual $\langle w \\rangle$ (a.u.)" )
+    #plt.legend()
+    plt.locator_params(axis='y', nbins=5)
     ax = plt.gca()
     ax.yaxis.label.set_color('gray')
     ax2 = ax.twinx()
-    ax2.plot(x, y4, marker='H', alpha=0.9, linewidth="2", markersize="20", label="$N$",
+    #ax.set_yscale('log')
+    #Axis.set_minor_formatter(ax.yaxis, ScalarFormatter())
+    #ax.ticklabel_format(style='sci')
+    ax2.plot(x, y4, marker='H', alpha=0.9, linewidth="2", markersize="20", label="$N_{I}$",
              color='tab:blue', markeredgewidth=1.5, markeredgecolor="tab:blue")
     #ax2.errorbar(x, y4, yerr=std4, fmt='none', color='blue', barsabove=True)
     ax2.fill_between(x, y4 - std4, y4 + std4, alpha=0.3, color='tab:blue')
-    ax2.set_ylabel("Number of active synapses")
+    ax2.set_ylabel("# Active synapses")
     ax2.yaxis.label.set_color('tab:blue')
     ax2.spines.right.set_visible(True)
+    #plt.xlim([-100, 100])
+    plt.locator_params(axis='y', nbins=5)
+    #plt.legend()
     plt.savefig("fig3b_inh.svg")
     plt.figure()
 
@@ -480,8 +555,16 @@ def plot_PO_vs_weight(x, y, name = ''):
         plt.scatter(np.abs(x), np.log(y), marker='D', alpha=0.9, color = 'tab:orange', edgecolors="white", label = "Excitatory")
     else:
         plt.scatter(np.abs(x), np.log(y), marker='D', alpha=0.9, color = 'tab:blue',  edgecolors="white", label = "Inhibitory")
-    plt.xlabel("PO difference")
-    plt.ylabel("Synaptic weight (log)")
+    plt.xlabel("PO difference (deg)")
+
+    #plt.yscale('log')
+    plt.ylabel("Synaptic weight (log a.u.)")
+    plt.locator_params(axis='y', nbins=5)
+    #ax = plt.gca()
+    #Axis.set_minor_formatter(ax.yaxis, ScalarFormatter())
+    #ax.ticklabel_format(style='sci')
+    #plt.xlim([-1, 95])
+
     #plt.legend()
     plt.savefig("PO_vs_weight_{}.svg".format(name))
     plt.figure()
@@ -491,9 +574,23 @@ def count_active_synapses(f_array = np.linspace(0,20,20), f_active = f_max, w = 
     return len(n), np.sum(w[n]), np.average(w[n])
 
 
-def tune_all_synapses(mean_ex = 0.0, mean_in = 0.0, std_ex = np.pi / 7, std_in = np.pi / 5,  to_plot = True):
+def gaussian(x, mu, sig):
+    return 40/np.sqrt(2 * np.pi * sig**2) * np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+
+def tune_all_synapses(mean_ex = 0.0, mean_in = 0.0, std_ex = np.pi/2 , std_in = np.pi / 5,  to_plot = True):
+
+    # OS from W
     tuning_angles_ex = np.random.normal(loc=mean_ex, scale=std_ex, size=N_excit_synapses)
-    tuning_angles_in = np.random.normal(loc=mean_in, scale=std_in, size=N_inhib_synapses)
+    #tuning_angles_in = np.random.normal(loc=mean_in, scale=std_in, size=N_inhib_synapses)
+    #tuning_angles_in = np.random.uniform(mean_in - np.pi/2, mean_in + np.pi/2, size=N_inhib_synapses)
+
+
+    tuning_angles_in = np.linspace(mean_in - np.pi/2, mean_in + np.pi/2, num=N_inhib_synapses)
+    # OS from <w>
+    #tuning_angles_ex = np.linspace(mean_ex - np.pi / 2, mean_ex + np.pi / 2, num=N_excit_synapses)
+    #range = np.linspace(mean_ex - np.pi/2, mean_ex + np.pi/2, num=N_excit_synapses)
+    #tuning_angles_ex = gaussian(range, mean_ex, std_ex)
+
 
     if (to_plot == True):
         diff = np.histogram(tuning_angles_ex)[0]- np.histogram(tuning_angles_in)[0]
@@ -511,9 +608,13 @@ def tune_all_synapses(mean_ex = 0.0, mean_in = 0.0, std_ex = np.pi / 7, std_in =
         #plt.xlabel("Tuning orientation $\\theta_{j}$ (deg)")
         plt.xlabel("PO (deg)")
         #plt.xlim([-95,95])
-        plt.legend()
+        plt.locator_params(axis='y', nbins=5)
+        plt.legend(labelcolor='linecolor')
         #plt.savefig("weights_per_tuned_synapse")
         plt.savefig('tuning_range.svg')
+        plt.savefig('tuning_range.png')
+
+
         plt.figure()
     return tuning_angles_ex, tuning_angles_in
 
@@ -558,9 +659,10 @@ def get_input_response_for_bar():
     plt.plot(theta_range, w_a/np.sum(w_a), alpha=0.7, marker="o", linewidth="2", markersize="12", label="$\sum_{j} w$")
     plt.plot(theta_range, f_a/np.sum(f_a), alpha=0.7, marker="o", linewidth="2", markersize="12", label="$\langle f \\rangle_{j}$")
     plt.xlabel("$\\theta$ (deg)")
-    plt.ylabel("Normalized quantity (percent)")
+    plt.ylabel("Normalized quantity (percent)", labelpad = 2)
     plt.legend()
     plt.savefig("cumulative_w.svg")
+    plt.savefig("cumulative_w.png")
 
 
 
@@ -651,6 +753,7 @@ def test_visualise_background_input(spikes_array, spikes_to_see=10, name="excita
     plt.ylabel("Cell number")
     #plt.gca().axes.get_yaxis().set_visible(False)
     plt.savefig("{} {} synapses out of {}. Ensemble f = {:.2f} Hz.svg".format(spikes_to_see,name,N_synapses,f))
+    plt.savefig("{} {} synapses out of {}. Ensemble f = {:.2f} Hz.png".format(spikes_to_see, name, N_synapses, f))
     plt.figure()
     #plt.show()
 
@@ -707,6 +810,7 @@ def get_f_isi_and_cv(spikes_arrays, to_plot = True, nr_seconds = stimulus_second
         # plt.gca().axes.get_yaxis().set_visible(False)
         # plt.savefig("{} {} synapses out of {}. Ensemble f = {:.2f} Hz.svg".format(spikes_to_see, name, N_synapses, f))
         plt.savefig("Raster plot = {}.svg".format(name))
+        plt.savefig("Raster plot = {}.png".format(name))
         plt.figure()
 
 
@@ -724,6 +828,7 @@ def get_f_isi_and_cv(spikes_arrays, to_plot = True, nr_seconds = stimulus_second
 
             #plt.legend()
             plt.savefig("Averate firing rates trial = {}.svg".format(name))
+            plt.savefig("Averate firing rates trial = {}.png".format(name))
         plt.figure()
 
         #for i, isi in enumerate(both_isi):
@@ -734,6 +839,7 @@ def get_f_isi_and_cv(spikes_arrays, to_plot = True, nr_seconds = stimulus_second
             plt.ylabel("Percent")
             #plt.legend()
             plt.savefig("Interspike intervals trial = {}.svg".format(name))
+            plt.savefig("Interspike intervals trial = {}.png".format(name))
         plt.figure()
 
         #for i, isi in enumerate(both_isi):
@@ -745,6 +851,7 @@ def get_f_isi_and_cv(spikes_arrays, to_plot = True, nr_seconds = stimulus_second
             plt.ylabel("Percent")
             #plt.legend()
             plt.savefig("CV of ISI trial = {}.svg".format(name))
+            plt.savefig("CV of ISI trial = {}.png".format(name))
         plt.figure()
 
 
@@ -769,7 +876,7 @@ def get_f_isi_and_cv(spikes_arrays, to_plot = True, nr_seconds = stimulus_second
 def evolve_potential_with_inhibition(spikes_ex, spikes_in,
                                      v = V_rest, g_e = g_0, g_i = g_0_i,
                                      tau = tau_ref, nr_spikes = 0,
-                                     v_series = [],  I_ex = [], I_in = [],
+                                     v_series = [], v_zoom_series = [],  I_ex = [], I_in = [],
                                      w_ex = weight_profiles, w_in = w_inh,
                                      name_V = "V(t)", name_i = "i(t)",
                                      to_plot = True, only_f = True, parameter_pass = False):
@@ -782,6 +889,12 @@ def evolve_potential_with_inhibition(spikes_ex, spikes_in,
 
     time_steps = len(spikes_ex[0])
     spike_times = []
+
+    v_zoom_series = []
+    I_ex = []
+    I_in = []
+    t_f_zoom = 1.5 #s
+
 
     for i in range(time_steps):
         tau += 1
@@ -798,23 +911,34 @@ def evolve_potential_with_inhibition(spikes_ex, spikes_in,
             spike_times.append(i)
             v = V_spike
             v_series.append(v)
-
-            if (i % save_interval == 0):
-
-                I_ex.append(g_e * (E_synapse - v))
-                I_in.append(g_i * (E_inh - v))
+            #if  (i % save_zoom_interval == 0) and (i * dt / 1000  < t_f_zoom):
+            #if (i % save_zoom_interval == 0) and (i * dt / 1000 < t_f_zoom):
+            if nr_spikes<3:
+                v_zoom_series.append(v)
+                I_ex.append(g_e * (E_synapse - V_rest))
+                I_in.append(g_i * (E_inh - V_rest) + (E_leak - V_rest))
+                t_f_zoom = i
 
             v = V_rest
+            #if (i % save_zoom_interval == 0) and (i* dt / 1000 < t_f_zoom):
+            #if (i % save_zoom_interval == 0) and (i * dt / 1000 < t_f_zoom):
+            #if nr_spikes < 3:
+
             tau = 0
         else:
+            #if (i % save_zoom_interval == 0) and  (i * dt / 1000  < 500):
+            if nr_spikes < 3:
+                I_ex.append(g_e * (E_synapse - v) )
+                I_in.append(g_i * (E_inh - v)+ (E_leak-v))
+                v_zoom_series.append(v)
+                t_f_zoom = i
             if (i % save_interval == 0):
-                I_ex.append(g_e * (E_synapse - v))
-                I_in.append(g_i * (E_inh - v))
                 v_series.append(v)
+
 
     #print("V_series after = {}".format(len(v_series)))
     if (len(v_series) == initial):
-         t_f = time_steps * 0.1 / 1000
+         t_f = time_steps * dt / 1000
          print("only stimulus")
     else:
         t_f = (len(v_series) + time_steps)* 0.1 / 1000
@@ -830,19 +954,39 @@ def evolve_potential_with_inhibition(spikes_ex, spikes_in,
         plt.plot(t, v_series, color = "gray")
         plt.xlabel("Time (s)")
         plt.ylabel("Membrane potential (mV)")
+        plt.locator_params(axis='y', nbins=5)
+        plt.locator_params(axis='x', nbins=5)
         plt.savefig(name_V+".svg")
+        plt.savefig(name_V + ".png")
         plt.figure()
 
         # Plotting the currents.
-        t = np.linspace(0, t_f, len(I_in))
-        plt.plot(t, I_in, color = "tab:blue", label="Inhibitory", alpha=0.9)
-        plt.plot(t, I_ex, color = "tab:orange", label="Excitatory", alpha = 0.9)
-        plt.plot(t, np.asarray(I_in) + np.asarray(I_ex), color = "green", label = "Net", alpha = 1.0)
+
+        t_f_zoom = t_f_zoom * dt / 1000
+        t = np.linspace(0, t_f_zoom, len(I_in))
+        plt.plot(t, I_in, color = "tab:blue", label="Inhibitory", alpha=0.9, linewidth=1)
+        plt.plot(t, I_ex, color = "tab:orange", label="Excitatory", alpha = 0.9, linewidth=1)
+        plt.plot(t, np.asarray(I_in) + np.asarray(I_ex), color = "black", label = "Net", alpha = 1.0, linewidth=1)
         plt.xlabel("Time (s)")
         plt.ylabel("Membrane currents (nA)")
-        plt.legend()
+        plt.locator_params(axis='y', nbins=5)
+        plt.locator_params(axis='x', nbins=5)
+
+        plt.legend(labelcolor='linecolor')
         plt.savefig(name_i+".svg")
+        plt.savefig(name_i + ".png")
         plt.figure()
+
+        t = np.linspace(0, t_f_zoom, len(v_zoom_series))
+        plt.plot(t, v_zoom_series, color="gray", linewidth=3)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Membrane potential (mV)")
+        plt.locator_params(axis='y', nbins=5)
+        plt.locator_params(axis='x', nbins=5)
+        plt.savefig(name_V + "zoom.svg")
+        plt.savefig(name_V + "zoom.png")
+        plt.figure()
+
 
         return nr_spikes/(time_steps * 0.1 / 1000), spike_times
     elif (parameter_pass == True):
@@ -1112,9 +1256,9 @@ if __name__ == '__main__':
     #count_active_synapses(f_array=np.linspace(0, 20, 20), f_active=f_max)
     #show_tuning_curve()
     #try_multiple_neurons(n=5)
-    get_output_bkg_stats()
+    #get_output_bkg_stats()
 
-    #get_response_for_bar(trials=5, to_plot=True, color_neuron='gray', test_EI=False, std_ex=np.pi/7, std_in=np.pi/5)
+    get_response_for_bar(trials=5, to_plot=True, color_neuron='gray', test_EI=True, std_ex=np.pi/7, std_in=np.pi/4)
 
     #get_input_stats()
 
@@ -1123,6 +1267,8 @@ if __name__ == '__main__':
 
     #get_input_stats(show_trials = False)
     #get_output_stats_homogeneous()
+
+    #try_multiple_neurons(n=20)
 
 
 
