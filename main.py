@@ -294,7 +294,7 @@ def try_multiple_neurons(n=2):
     #plot_soma_response(x=x_axis, y=np.mean(f,axis=0), err=np.sqrt(np.sum(np.square(f_std),axis=0))/n, name="PO", PO = [np.average(PO),np.std(PO)])
     #print(str(np.average(PO))+" "+str(np.std(PO)))
 
-def generate_weights():
+def generate_weights(order = False):
     global weight_profiles, w_inh
 
     # weight_profiles = np.random.lognormal(mean=normal_mean, sigma=normal_std, size=N_excit_synapses)
@@ -308,6 +308,10 @@ def generate_weights():
     weight_profiles = np.log(X.rvs(N_excit_synapses))
    # weight_profiles = 2*gaussian(np.linspace(-1.5, 1.5, num=N_excit_synapses), mu=0.0, sig=0.5)
     w_inh = np.log(X.rvs(N_inhib_synapses))
+
+    if order == True:
+        weight_profiles = np.flip(np.sort(weight_profiles))
+
 
     return weight_profiles, w_inh
 
@@ -328,7 +332,7 @@ def get_response_for_bar(trials = 1, to_plot = True, color_neuron = 'gray', test
     w_active_in = np.zeros((trials, bars))
     w_avg_in = np.zeros((trials, bars))
 
-    weight_profiles, w_inh = generate_weights()
+    weight_profiles, w_inh = generate_weights(order=False)
 
 
     #if True:
@@ -337,7 +341,7 @@ def get_response_for_bar(trials = 1, to_plot = True, color_neuron = 'gray', test
     #    else:
     #        tuned_ex_synapses, tuned_in_synapses = tune_all_synapses(mean_ex=mean, mean_in=mean, std_ex=std_ex, std_in=std_in)
 
-    tuned_ex_synapses, tuned_in_synapses = cont_tuning()
+    tuned_ex_synapses, tuned_in_synapses = tune_binary()
 
     #mu = 0.12
     #sigma = np.sqrt(mu)
@@ -435,20 +439,23 @@ def get_response_for_bar(trials = 1, to_plot = True, color_neuron = 'gray', test
         std_w_avg_in = np.std(w_avg_in, axis=0)
 
         plot_soma_response(bars_range, avg, std, name="PO")
+
+        plot_PO_vs_weight(np.abs(tuned_ex_synapses - np.pi/4) * 180 / np.pi, weight_profiles, name='exc', binary=True)
+        plot_PO_vs_weight(np.abs(tuned_in_synapses - np.pi/4) * 180 / np.pi, w_inh, name='inh', binary=True)
+
         plot_soma_response(bars_range, avg, std, name="delta_PO")
         #plot_soma_response(PO - bars_range, avg, std, name="delta_PO")
 
-        plot_fig_3a(bars_range-45, avg, avg_w_ex, avg_w_in, std, std_w_ex, std_w_in)
+        plot_fig_3a(bars_range, avg, avg_w_ex, avg_w_in, std, std_w_ex, std_w_in)
         #plot_fig_3a(PO-bars_range, avg, avg_w_ex, avg_w_in, std, std_w_ex, std_w_in)
-        plot_fig_3b(bars_range-45,
+        plot_fig_3b(bars_range,
                     avg_w_avg_ex, avg_nr_ex, std_w_avg_ex, std_nr_ex,
                     avg_w_avg_in, avg_nr_in, std_w_avg_in, std_nr_in)
         #plot_fig_3b(PO-bars_range,
         #            avg_w_avg_ex, avg_nr_ex, std_w_avg_ex, std_nr_ex,
         #            avg_w_avg_in, avg_nr_in, std_w_avg_in, std_nr_in)
 
-        plot_PO_vs_weight(np.abs(tuned_ex_synapses - np.pi/4) * 180 / np.pi, weight_profiles, name = 'exc')
-        plot_PO_vs_weight(np.abs(tuned_in_synapses-np.pi/4) * 180 / np.pi, w_inh, name = 'inh')
+
     return bars_range, avg, std, PO, all_spikes
 
 def plot_soma_response(x, y, err, name, PO = []):
@@ -489,14 +496,14 @@ def plot_soma_response(x, y, err, name, PO = []):
     plt.figure()
 
 def plot_fig_3a(x, y1, y2, y3, std1, std2, std3):
-    stop = int(len(x) / 2)
-    x = x[:stop]
-    y1 =y1[:stop]
-    y2 = y2[:stop]
-    y3 = y3[:stop]
-    std1 = std1[:stop]
-    std2 = std2[:stop]
-    std3 = std3[:stop]
+    #stop = int(len(x) / 2)
+    #x = x[:stop]
+    #y1 =y1[:stop]
+    #y2 = y2[:stop]
+    #y3 = y3[:stop]
+    #std1 = std1[:stop]
+    #std2 = std2[:stop]
+    #std3 = std3[:stop]
 
 
     plt.plot(x, y1, marker='o', alpha=1.0, linewidth="2", markersize="10", label="$f$",
@@ -504,8 +511,8 @@ def plot_fig_3a(x, y1, y2, y3, std1, std2, std3):
     #plt.errorbar(x, y1, yerr=std1, fmt='none', color='black', barsabove = True)
     plt.fill_between(x, y1 - std1, y1 + std1, alpha = 0.3, color='gray')
 
-    plt.xlabel("PO difference (deg)")
-    #plt.xlabel("Stimulus $\\theta$ (deg)")
+    #plt.xlabel("PO difference (deg)")
+    plt.xlabel("Stimulus $\\theta$ (deg)")
     plt.ylabel("Postsynaptic $f$ (Hz)")
 
     ax = plt.gca()
@@ -526,30 +533,31 @@ def plot_fig_3a(x, y1, y2, y3, std1, std2, std3):
     #plt.xlim([-95,95])
     plt.legend()
     plt.savefig("fig3a.svg")
+    plt.savefig("fig3a.png")
     plt.figure()
 
 def plot_fig_3b(x, y1, y2, std1, std2, y3, y4, std3, std4):
     #plt.plot(x, np.log(y1), marker='D', alpha=0.9, linewidth="2", markersize="20", label="Median weight",
     #        color='gray', markeredgewidth=1.5, markeredgecolor="gray")
     #plt.fill_between(x, np.log(y1 - std1), np.log(y1 + std1), alpha=0.3, color='gray')
-    stop = int(len(x) / 2)
-    x = x[:stop]
-    y1 = y1[:stop]
-    y2 = y2[:stop]
-    y3 = y3[:stop]
-    y4 = y4[:stop]
-    std1 = std1[:stop]
-    std2 = std2[:stop]
-    std3 = std3[:stop]
-    std4 = std4[:stop]
+    #stop = int(len(x) / 2)
+    #x = x[:stop]
+    #y1 = y1[:stop]
+    #y2 = y2[:stop]
+    #y3 = y3[:stop]
+    #y4 = y4[:stop]
+    #std1 = std1[:stop]
+    #std2 = std2[:stop]
+    #std3 = std3[:stop]
+    #std4 = std4[:stop]
 
 
     plt.plot(x, y1, marker='D', alpha=1.0, linewidth="2", markersize="20", label="$w$", color='gray', markeredgewidth=1.5, markeredgecolor="gray")
 
     # plt.errorbar(x, np.log(y1), yerr=np.log(std1), fmt='none', color='gray', barsabove=True)
     plt.fill_between(x, y1 - std1, y1 + std1, alpha=0.3, color='gray')
-    plt.xlabel("PO difference (deg)")
-    #plt.xlabel("Stimulus $\\theta$ (deg)")
+    #plt.xlabel("PO difference (deg)")
+    plt.xlabel("Stimulus $\\theta$ (deg)")
     plt.ylabel("Individual $\langle w \\rangle$ (a.u.)")
     #plt.legend()
     plt.locator_params(axis='y', nbins=5)
@@ -572,6 +580,7 @@ def plot_fig_3b(x, y1, y2, std1, std2, y3, y4, std3, std4):
     #plt.xlim([-95, 95])
     #plt.legend()
     plt.savefig("fig3b_ex.svg")
+    plt.savefig("fig3b_ex.png")
     plt.figure()
 
     #plt.plot(x, np.log(y3), marker='D', alpha=0.9, linewidth="2", markersize="20", label="Average weight", color='gray', markeredgewidth=1.5, markeredgecolor="gray")
@@ -581,8 +590,8 @@ def plot_fig_3b(x, y1, y2, std1, std2, y3, y4, std3, std4):
     #plt.errorbar(x, np.log(y3), yerr=np.log(std3), fmt='none', color='gray', barsabove=True)
     plt.fill_between(x, y3 - std3, y3 + std3, alpha=0.3, color='gray')
 
-    plt.xlabel("PO difference (deg)")
-    #plt.xlabel("Stimulus $\\theta$ (deg)")
+    #plt.xlabel("PO difference (deg)")
+    plt.xlabel("Stimulus $\\theta$ (deg)")
     plt.ylabel("Individual $\langle w \\rangle$ (a.u.)" )
     #plt.legend()
     plt.locator_params(axis='y', nbins=5)
@@ -603,22 +612,29 @@ def plot_fig_3b(x, y1, y2, std1, std2, y3, y4, std3, std4):
     plt.locator_params(axis='y', nbins=5)
     #plt.legend()
     plt.savefig("fig3b_inh.svg")
+    plt.savefig("fig3b_inh.png")
     plt.figure()
 
 def plot_PO_vs_weight(x, y, name = '', binary = False):
     if name == 'exc':
        # t = np.linspace(0.0,1.0,len(x))
-       if binary == "True":
+       po_dif = np.sort(np.abs(x))
+       if binary == True:
            t = np.zeros(len(x))
-           po_dif = np.abs(x)
            for l in range(len(x)):
                if po_dif[l] != 0:
                    t[l] = 1.0
        else:
-           t = np.linspace(0, 1.0, len(x))
-       plt.scatter(po_dif, np.log(y), marker="^", alpha=0.6, color = cmap(t), edgecolors="white", label = "Excitatory")
+           t = np.linspace(0.0, 1.0, len(po_dif))
+           #for l in range(len(x)):
+           #    if po_dif[l] == 0:
+           #        t[l] = 0.0
+       #plt.scatter(po_dif, np.log(y), marker="^", s=20*(100-po_dif), alpha=0.8, color = cmap(t), edgecolors="white", label = "Excitatory")
+       plt.scatter(po_dif, np.log(y), marker="^", s=(y*150)**2, alpha=0.8, color=cmap(t), edgecolors="white",
+                   label="Excitatory")
+       plt.xlim([-10,98])
     else:
-        plt.scatter(np.abs(x), np.log(y), marker='o', alpha=0.6, color = 'tab:blue',  edgecolors="white", label = "Inhibitory")
+        plt.scatter(np.abs(x), np.log(y), marker='o', s=800, alpha=0.8, color = 'tab:blue',  edgecolors="white", label = "Inhibitory")
     plt.xlabel("PO difference (deg)")
 
     #plt.yscale('log')
@@ -631,6 +647,7 @@ def plot_PO_vs_weight(x, y, name = '', binary = False):
 
     #plt.legend()
     plt.savefig("PO_vs_weight_{}.svg".format(name))
+    plt.savefig("PO_vs_weight_{}.png".format(name))
     plt.figure()
 
 def count_active_synapses(f_array = np.linspace(0,20,20), f_active = f_max, w = weight_profiles):
@@ -706,6 +723,58 @@ def tune_binary_synaptic(theta1 = np.pi/4, theta2 = 3*np.pi/4):
     plt.savefig('tuning_range.png')
     plt.figure()
     return tuning_angles_ex, tuning_angles_in
+
+def tune_cont_synaptic(theta1 = np.pi/4, theta2 = 3*np.pi/4, weight_profiles = weight_profiles):
+    tuning_angles_in = np.linspace(0, np.pi, N_inhib_synapses)
+
+    # OS from <w>
+    tuning_angles_ex = np.zeros_like(weight_profiles)
+
+    #stop = np.max(weight_profiles)
+    #print(stop)
+    #start = np.min(weight_profiles)
+    #print(start)
+    #range = np.max(weight_profiles) - np.min(weight_profiles)
+
+
+    #print(range)
+
+    new_weight_profiles = np.flip(np.sort(weight_profiles))
+
+    bins = 5
+    delta_angle = np.linspace(0, np.pi/4, bins)
+    w = np.linspace(new_weight_profiles[0], new_weight_profiles[-1], bins)
+
+    print(w)
+
+    bin = 1
+    for i in range(N_excit_synapses):
+        if bin<bins:
+            if new_weight_profiles[i]>w[bin]:
+                tuning_angles_ex[i] = np.pi/4 + np.random.normal(loc = 0.0, scale=np.pi/18 * (bin), size = 1)
+            else:
+                bin = bin + 1
+
+    #t = np.ones(bins)
+    #t[:5] = np.flip(np.linspace(0.0,0.5,5))
+    #t[5:15] = np.linspace(0.22,1.0, 10)
+
+
+
+    plt.hist(tuning_angles_ex * 180 / np.pi, label="$N_{E}$", alpha=0.8, color="tab:orange")
+    plt.hist(tuning_angles_in * 180 / np.pi, label="$N_{I}$", alpha=0.8, color='tab:blue')
+    #plt.scatter(np.linspace(0,180,bins) * 180 / np.pi, ns, color=cmap(t))
+    plt.xlabel("PO (deg)")
+    # plt.xlim([-95,95])
+    plt.locator_params(axis='y', nbins=5)
+    plt.legend(labelcolor='linecolor')
+    # plt.savefig("weights_per_tuned_synapse")
+    plt.savefig('tuning_range.svg')
+    plt.savefig('tuning_range.png')
+    plt.figure()
+
+    return tuning_angles_ex, tuning_angles_in
+
 
 
 
@@ -1370,26 +1439,44 @@ def cont_tuning(theta1 = np.pi/4, theta_2 = 3*np.pi/4):
     tuning_angles_ex = np.zeros(N_excit_synapses)
 
 
-    last = 0
-    for i,val in enumerate(ns):
-        tuning_angles_ex[last : last + val] = x[i]
-        last = last + val
+    #last = 0
+    #for i,val in enumerate(ns):
+    #    tuning_angles_ex[last : last + val] = x[i]
+    #    last = last + val
+
+    bin = 1
+    #for i in range(N_excit_synapses):
+    for i in range(N_excit_synapses):
+        if i<bin*100:
+            tuning_angles_ex[i] = np.pi / 4 + np.random.normal(loc=0.0, scale=np.pi / 10*bin , size=1)
+        else:
+            bin = bin+1
+
+    #if bin < bins:
+    #    if new_weight_profiles[i] > w[bin]:
+    #        tuning_angles_ex[i] = np.pi / 4 + np.random.normal(loc=0.0, scale=np.pi / 25 * (bin), size=1)
+    #    else:
+    #        bin = bin + 1
+
+
+
+
 
     tuning_angles_in = np.linspace(0, np.pi, num=N_inhib_synapses)
 
     print(np.sum(ns))
     print(len(tuning_angles_ex))
 
-    t = np.zeros(len(x))
-    t[:5] = np.flip(np.linspace(0.0,0.25,5))
-    t[5:len(x)] = np.linspace(0,1.0, len(x)-5)
+    t = np.ones(len(x))
+    t[:5] = np.flip(np.linspace(0.0,0.5,5))
+    t[5:15] = np.linspace(0.22,1.0, 10)
 
 
     print(ns)
     #plt.hist(tuning_angles_in * 180 / np.pi, bins=15, color="tab:blue", alpha=0.6,  label= "$N_{I}$" )
-    plt.hist(tuning_angles_ex * 180 / np.pi, bins = bins, color = "tab:orange", alpha = 0.8,  label= "$N_{E}$")
-    plt.hist(tuning_angles_in * 180 / np.pi, bins=bins, color="tab:blue", alpha=0.8, label="$N_{I}$")
-    plt.scatter(x*180/np.pi, ns, color = cmap(t))
+    plt.hist(tuning_angles_ex * 180 / np.pi, color = "tab:orange", alpha = 0.8,  label= "$N_{E}$")
+    plt.hist(tuning_angles_in * 180 / np.pi,  color="tab:blue", alpha=0.8, label="$N_{I}$")
+    #plt.scatter(x*180/np.pi, ns, color = cmap(t))
 
     plt.xlabel("PO (deg)")
     # plt.xlim([-95,95])
@@ -1463,6 +1550,7 @@ if __name__ == '__main__':
     #tune_all_synapses(mean_ex=np.pi/4, mean_in=0.0, std_ex=np.pi / 2, std_in=np.pi / 5, to_plot=True)
     #print(int(3.9))
     #cont_tuning()
+    #tune_cont_synaptic()
 
 
 
