@@ -11,7 +11,7 @@
 
 ### Experiments
 - [ ] Robustness
-	- [ x ] Weight deletion
+	- [x] Weight deletion
 	- [ ] Probability of firing
 	- [ ] Probability of transmitting the spike
 - [ ] Inhibition impact
