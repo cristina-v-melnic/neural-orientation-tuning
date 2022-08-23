@@ -1,5 +1,5 @@
 # neural-orientation-tuning
-## Orientation selectivity can arise from distinct connectivity patterns
+ Code for "Orientation selectivity can arise from distinct connectivity patterns" project.
 
 ## Application description
 Modelling of a single orientation-selective neuron receiving inputs from other neurons that have
@@ -13,15 +13,15 @@ parameters.py -> plotting_setup.py -> plots.py -> postsynaptic_train.py -> utils
 -> stimulus_sweep.py -> robustness_experiment.py -> main.py 
 
 ### To get plots of a tuning curve:
-<code get_response_for_bar(trials=5, to_plot=True, mean = np.pi/4) >
+`get_response_for_bar(trials=5, to_plot=True, mean = np.pi/4)`
 
 ### To see impact of connectivity on robustness:
-<code check_robustness() >
+`check_robustness()`
 
 
 ## Contributions
 This project was realised during a summer internship in the Vogels lab at IST Austria, funded by OeAD
-as a part of the "ISTernship" program. It was closely supervised by Dr. Douglas Feitosa Tomé and Prof. Dr. Tim P Vogels and other members of the "Computational Neuroscience and Neurotheory" group. 
+as a part of the "ISTernship" program. It was closely supervised by Dr. Douglas Feitosa Tomé and Prof. Dr. Tim P Vogels and other members of the "Computational Neuroscience and Neurotheory" group at ISTA.
 
 ## More about the project  
 
