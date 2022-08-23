@@ -7,11 +7,7 @@ different preferred orientations. The project shows what properties the postsyna
 and how they depend on the input. It aims to investigate two types of connectivity of neurons
 in the primary visual cortex, i.e., weight-based and number-based.
 
-
-### Code structure:
-parameters.py -> plotting_setup.py -> plots.py -> postsynaptic_train.py -> utils_stimulus_sweep.py 
--> stimulus_sweep.py -> robustness_experiment.py -> main.py 
-
+To reproduce some of the results, the functions below can be run in the main.py file. 
 #### To get plots of a tuning curve:
 `get_response_for_bar(trials=5, to_plot=True, mean = np.pi/4)`
 
