@@ -2,11 +2,15 @@
  Code for "Orientation selectivity can arise from distinct connectivity patterns" project.
  
 ### Structure
+- [ ] Comment the second part of the stimulus_sweep.py
+- [ ] Comment the utils file
+- [ ] Comment the plotting files
 - [ ] Separate data and processing
 	- [ ] Separate the lif
 	- [ ] Separate the sweep
 	- [ ] Create some sample data and plots folders
 - [ ] Change to object-oriented
+
 
 
 ### Experiments
