@@ -1,5 +1,5 @@
 from postsynaptic_train import *
-from utensils_stimulus_sweep import *
+from utils_stimulus_sweep import *
 from plots import *
 import numpy as np
 

@@ -73,12 +73,13 @@ weight_profiles = np.log(X.rvs(N_excit_synapses))
 w_inh = np.log(X.rvs(N_inhib_synapses))
 
 # Other distributions I've tried.
-# uniform distrib for weights has worked
+
+# Uniform distrib for weights has worked.
 #mu = 0.25
 #weight_profiles = np.ones(N_excit_synapses) * mu
 #w_inh = np.ones(N_inhib_synapses) * mu
 
-# gaussian distrib for weights has worked as well
+# Gaussian distrib for weights has worked as well.
 #mu = 0.07
 #sigma = np.sqrt(mu)
 #weight_profiles = np.random.normal( loc = mu, scale = sigma, size = N_excit_synapses)
