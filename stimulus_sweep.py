@@ -4,9 +4,29 @@ from plots import *
 import numpy as np
 
 
-def get_response_for_bar(trials = 1, bars = 21, to_plot = True, color_neuron = 'gray', test_EI = False,
-                         std_ex = np.pi / 9, std_in = np.pi / 5, homogeneous = False, mean = np.pi/2,
-                         syn = False, binary = True, cut_nr_neurons = 0):
+def get_response_for_bar(trials = 1, bars = 21, mean = np.pi/2,
+                         syn = False, binary = True, to_plot = True,
+                         color_neuron = 'gray', homogeneous = False,
+                         cut_nr_neurons = 0):
+    '''
+    Get the tuning curve of a postsynaptic neuron with differently tuned presynaptic
+    afferents by presenting it with a range of bars of various orientation angles.
+
+    :param trials: (int) Nr of times to sweep the bar to get the tuning curve with mean and std.
+    :param bars: (int) Number of bars shown (orientation angles) in each sweep.
+    :param mean: (float) PO of most input in units of pi.
+    :param binary: (bool) Afferents with 2 types of PO or continuous PO.
+    :param syn: (bool) The synaptic (weight-based) or structural (number-based) scenario.
+
+    :param to_plot: (bool) Generate tuning curve plots or only get the data.
+    :param color_neuron: (str) Color of the postsynaptic tuning curve.
+
+    :param homogeneous: (bool) Tune all afferents to the same PO.
+
+    :param cut_nr_neurons: (int) Nr of neurons to delete for robustness tests.
+
+    :return: Tuning curve of the postsynaptic neuron as a list and/or a plot.
+    '''
 
     # Vectors to store the firing rate for every bar at each trial.
     fs_out = np.zeros((trials, bars))
@@ -83,8 +103,8 @@ def get_response_for_bar(trials = 1, bars = 21, to_plot = True, color_neuron = '
             all_spikes.append(spike_times)
 
 
-            print("f_out = {}".format(fs_out[j,i]))
-        plt.scatter(bars_range, fs_out[j,:], alpha=0.2, color = color_neuron)
+            #print("f_out = {}".format(fs_out[j,i]))
+        #plt.scatter(bars_range, fs_out[j,:], alpha=0.2, color = color_neuron)
         #plt.savefig("output trial {}".format(j))
     #plt.savefig("output_f_theta_all")
 
@@ -113,17 +133,9 @@ def get_response_for_bar(trials = 1, bars = 21, to_plot = True, color_neuron = '
         plot_PO_vs_weight(np.abs(tuned_ex_synapses - np.pi/4) * 180 / np.pi, weight_profiles, name='exc', binary=True)
         plot_PO_vs_weight(np.abs(tuned_in_synapses - np.pi/4) * 180 / np.pi, w_inh, name='inh', binary=True)
 
-        plot_soma_response(bars_range, avg, std, name="delta_PO")
-        #plot_soma_response(PO - bars_range, avg, std, name="delta_PO")
-
         plot_fig_3a(bars_range, avg, avg_w_ex, avg_w_in, std, std_w_ex, std_w_in)
-        #plot_fig_3a(PO-bars_range, avg, avg_w_ex, avg_w_in, std, std_w_ex, std_w_in)
         plot_fig_3b(bars_range,
                     avg_w_avg_ex, avg_nr_ex, std_w_avg_ex, std_nr_ex,
                     avg_w_avg_in, avg_nr_in, std_w_avg_in, std_nr_in)
-        #plot_fig_3b(PO-bars_range,
-        #            avg_w_avg_ex, avg_nr_ex, std_w_avg_ex, std_nr_ex,
-        #            avg_w_avg_in, avg_nr_in, std_w_avg_in, std_nr_in)
-
 
     return bars_range, avg, std, all_spikes

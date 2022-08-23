@@ -1,6 +1,7 @@
 from plotting_setup import *
-import numpy as np
+from parameters import *
 
+# Stimulus_sweep plots
 def plot_soma_response(x, y, err, name, PO = []):
     if name == 'PO':
         plt.scatter([x[np.argmax(y)]], [np.min(y)], alpha=1.0, marker='x' , s=50, color = 'tab:red', label ="PO")
@@ -193,3 +194,45 @@ def plot_PO_vs_weight(x, y, name = '', binary = False):
     plt.savefig("PO_vs_weight_{}.png".format(name))
     plt.figure()
 
+# Postsynaptic_train plots
+def plot_v_trace(t_f, v_series, name_V = "V(t)"):
+    # Plotting the trace.
+    t = np.linspace(0, t_f, len(v_series))
+
+    plt.plot(t, v_series, color="gray")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Membrane potential (mV)")
+    plt.locator_params(axis='y', nbins=5)
+    plt.locator_params(axis='x', nbins=5)
+    plt.savefig(name_V + ".svg")
+    plt.savefig(name_V + ".png")
+    plt.figure()
+
+def plot_current_zoomed(t_f_zoom, I_in, I_ex, name_i = "I(t)_zoomed"):
+    # Plotting the currents.
+
+    t_f_zoom = t_f_zoom * dt / 1000
+    t = np.linspace(0, t_f_zoom, len(I_in))
+    plt.plot(t, I_in, color="tab:blue", label="Inhibitory", alpha=0.9, linewidth=1)
+    plt.plot(t, I_ex, color="tab:orange", label="Excitatory", alpha=0.9, linewidth=1)
+    plt.plot(t, np.asarray(I_in) + np.asarray(I_ex), color="black", label="Net", alpha=1.0, linewidth=1)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Membrane currents (nA)")
+    plt.locator_params(axis='y', nbins=5)
+    plt.locator_params(axis='x', nbins=5)
+
+    plt.legend(labelcolor='linecolor')
+    plt.savefig(name_i + ".svg")
+    plt.savefig(name_i + ".png")
+    plt.figure()
+
+def plot_voltage_zoomed(t_f_zoom, v_zoom_series, name_V = "V(t)"):
+    t = np.linspace(0, t_f_zoom, len(v_zoom_series))
+    plt.plot(t, v_zoom_series, color="gray", linewidth=3)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Membrane potential (mV)")
+    plt.locator_params(axis='y', nbins=5)
+    plt.locator_params(axis='x', nbins=5)
+    plt.savefig(name_V + "zoom.svg")
+    plt.savefig(name_V + "zoom.png")
+    plt.figure()

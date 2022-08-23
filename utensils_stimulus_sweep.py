@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-
 from parameters import *
 from plotting_setup import *
 
