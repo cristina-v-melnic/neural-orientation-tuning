@@ -19,11 +19,10 @@ parameters.py -> plotting_setup.py -> plots.py -> postsynaptic_train.py -> utils
 `check_robustness()`
 
 
-## Contributions
-This project was realised during a summer internship in the Vogels lab at IST Austria, funded by OeAD
-as a part of the "ISTernship" program. It was closely supervised by Dr. Douglas Feitosa Tomé and Prof. Dr. Tim P Vogels and other members of the "Computational Neuroscience and Neurotheory" group at ISTA.
+## More about the project 
 
-## More about the project  
+#### Authors:
+Cristina Melnic, Douglas Feitosa Tomé, Tim P Vogels
 
 #### Abstract:
 Neurons in the primary visual cortex (V1) are known to selectively respond to stimuli of spatial orientations, whereby groups of neurons are tuned to distinct preferred orientation angles. It was established that neurons with similar preferred orientation have a higher probability of being connected, which was interpreted in classical theories as larger synaptic weights. A recent experimental study of single neurons with all their afferents [1], however, found the individual synaptic strength of afferents to be independent of the similarity to the postsynaptic preferred orientation. 
@@ -32,5 +31,6 @@ Here, we theoretically investigate a neuron model with orientation selective aff
 
 [1] Scholl et al. 2021, “Cortical response selectivity derives from strength in numbers of synapses”, Nature
 
-#### Authors:
-Cristina Melnic, Douglas Feitosa Tomé, Tim P Vogels
+## Credits
+This project was realised during a summer internship in the Vogels lab at IST Austria, funded by OeAD
+as a part of the "ISTernship" program. It was closely supervised by Dr. Douglas Feitosa Tomé and Prof. Dr. Tim P Vogels and other members of the "Computational Neuroscience and Neurotheory" group at ISTA.
