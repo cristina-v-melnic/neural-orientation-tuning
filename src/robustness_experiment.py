@@ -11,14 +11,14 @@ def check_robustness():
     :return: Plot of mean-squared-error (MSE) versus number of deleted synapses.
     '''
     # How many neurons to cut.
-    #nr_to_cut = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
-    nr_to_cut = np.arange(0, 36, 2)
+    nr_to_cut = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+    #nr_to_cut = np.arange(0, 36, 2)
 
     # The type of connectivity.
     types = ["syn", "struct"]
 
     # Where to save the resulting files.
-    directory = 'data/robustness/'
+    directory = '../data/robustness/'
 
     # Run simulations to get tuning curves and save them in files.
     run_check_robustness(nr_to_cut, types, directory)
