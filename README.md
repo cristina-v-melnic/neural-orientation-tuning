@@ -2,8 +2,8 @@
  Code for "Orientation selectivity can arise from distinct connectivity patterns" project.
 
 ## Application description
-Modelling of a single orientation-selective neuron receiving inputs from other neurons that have
-different tuning properties. The project shows what properties the postsynaptic neuron has
+Model of a single orientation-selective neuron receiving inputs from afferents with
+different preferred orientations. The project shows what properties the postsynaptic neuron has
 and how they depend on the input. It aims to investigate two types of connectivity of neurons
 in the primary visual cortex, i.e., weight-based and number-based.
 
