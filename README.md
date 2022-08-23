@@ -32,5 +32,5 @@ Here, we theoretically investigate a neuron model with orientation selective aff
 [1] Scholl et al. 2021, “Cortical response selectivity derives from strength in numbers of synapses”, Nature
 
 ### Credits
-This project was realised during a summer internship (June-August 2022) in the Vogels lab at IST Austria, funded by OeAD
+This project was realised during a summer internship (June - August 2022) in the Vogels lab at IST Austria, funded by OeAD
 as a part of the "ISTernship" program. It was closely supervised by Dr. Douglas Feitosa Tomé and Prof. Dr. Tim P Vogels and other members of the "Computational Neuroscience and Neurotheory" group at ISTA.
