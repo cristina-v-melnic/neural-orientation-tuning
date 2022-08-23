@@ -20,6 +20,7 @@ parameters.py -> plotting_setup.py -> plots.py -> postsynaptic_train.py -> utils
 
 
 ## More about the project 
+### "Orientation selectivity can arise from distinct connectivity patterns"
 
 ### Authors:
 Cristina Melnic, Douglas Feitosa Tomé, Tim P Vogels
