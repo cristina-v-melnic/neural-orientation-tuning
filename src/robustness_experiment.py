@@ -42,7 +42,7 @@ def check_robustness(plot_directory = "../plots/robustness_exp/"):
     plt.figure()
 
 
-def run_check_robustness(nr_to_cut, types, directory):
+def run_check_robustness(nr_to_cut, types, directory, nr_trials = 5):
     '''
     :return: Files with tuning curves in both scenarios with
              different amounts of similar afferents being cut.
@@ -55,15 +55,19 @@ def run_check_robustness(nr_to_cut, types, directory):
 
             if os.path.exists(directory + name_file) == False:
                 if nr == 0 or nr == 20 or nr == 30 or nr == 40:
-                    fs_syn = get_response_for_bar(trials=5, to_plot=True, syn=True, binary=True, cut_nr_neurons=nr, name_file=str(type)+"_"+str(nr))[1]
+                    fs_syn = get_response_for_bar(trials = nr_trials, to_plot = True, syn = True, binary = True,
+                                                  cut_nr_neurons = nr, name_file = str(type)+"_"+str(nr))[1]
                 else:
-                    fs_syn = get_response_for_bar(trials=5, to_plot=False, syn=True, binary=True, cut_nr_neurons=nr,
-                                                 name_file=str(type) + "_" + str(nr))[1]
+                    fs_syn = get_response_for_bar(trials = nr_trials, to_plot = False, syn = True, binary = True,
+                                                  cut_nr_neurons = nr, name_file = str(type) + "_" + str(nr))[1]
                 with open(directory + name_file, 'wb') as fout:
                     pickle.dump(fs_syn, fout)
             else:
                 print("Yeey! {} datafile already exists!".format(name_file))
 
+
+def run_if_nonexistent(parameter_to_save, directory, nr_trials = 5):
+    return 0
 
 def get_data_robustness(nr_to_cut, types, directory):
     '''
