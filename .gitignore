@@ -1,7 +1,11 @@
-plots/
+plots_exp/
 
-data/
+data_exp/
 
 .idea/
+
+src/__pycache__
+
+src/unknown.py
 
 __pycache__/

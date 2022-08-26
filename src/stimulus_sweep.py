@@ -1,4 +1,4 @@
-from postsynaptic_train import *
+from COBA_integration import *
 from utils_stimulus_sweep import *
 from plots import *
 import numpy as np
@@ -7,7 +7,7 @@ import numpy as np
 def get_response_for_bar(trials = 1, bars = 21, mean = np.pi/2,
                          syn = False, binary = True, to_plot = True,
                          color_neuron = 'gray', homogeneous = False,
-                         cut_nr_neurons = 0):
+                         cut_nr_neurons = 0, name_file = "post"):
     '''
     Get the tuning curve of a postsynaptic neuron with differently tuned presynaptic
     afferents by presenting it with a range of bars of various orientation angles.
@@ -58,7 +58,7 @@ def get_response_for_bar(trials = 1, bars = 21, mean = np.pi/2,
 
     # Robustness experiment upon deleting tuned afferents in both scenarios.
     if cut_nr_neurons != 0:
-        w_ex = cut_neurons(tuned_ex_synapses, w_ex, number=cut_nr_neurons)
+        w_ex = cut_neurons(tuned_ex_synapses, w_ex, number = cut_nr_neurons)
 
     # List for storing postsynaptic spikes.
     all_spikes = []
@@ -67,7 +67,7 @@ def get_response_for_bar(trials = 1, bars = 21, mean = np.pi/2,
         print("trial {}".format(j))
 
         # Get parameters in the spontaneous firing mode before showing the stimulus.
-        v_spont, g_e_spont, g_i_spont, tau_spont, nr_spikes_spont, v_series_spont, I_ex_spont, I_in_spont = evolve_potential_with_inhibition(
+        v_spont, g_e_spont, g_i_spont, tau_spont, nr_spikes_spont, v_series_spont, I_ex_spont, I_in_spont = integrate_COBA(
                                                                                                                                         spikes_ex=spikes_pre, spikes_in=spikes_inh_pre,
                                                                                                                                         to_plot=False, only_f=False, parameter_pass=True, w_ex = w_ex)
         print("after int = {}".format(v_spont))
@@ -89,13 +89,13 @@ def get_response_for_bar(trials = 1, bars = 21, mean = np.pi/2,
             nr_active_in[j][i], w_active_in[j][i], w_avg_in[j][i] = count_active_synapses(fs_res_in, f_active=f_max-1, w=w_inh)
 
             if (j == 0) and (i == 0 or i == 5 or i == 10 or i == 15) and (to_plot == True):
-                fs_out[j, i], spike_times = evolve_potential_with_inhibition(
+                fs_out[j, i], spike_times = integrate_COBA(
                 spikes_ex, spikes_in, w_ex = w_ex,
                 v = v_spont, g_e = g_e_spont, g_i = g_i_spont, tau = tau_ref, nr_spikes=0, v_series=[], I_ex = [], I_in=[],
                 name_i="i for bar: {}".format(i), name_V= "V for bar: {}".format(i), only_f=False, to_plot=True, parameter_pass=False)
 
             else:
-                fs_out[j, i], spike_times = evolve_potential_with_inhibition(
+                fs_out[j, i], spike_times = integrate_COBA(
                     spikes_ex, spikes_in, w_ex = w_ex,
                     v=v_spont, g_e=g_e_spont, g_i=g_i_spont, tau=tau_ref, nr_spikes=0, v_series=[], I_ex=[], I_in=[],
                     name_i="i for bar: {}".format(i), name_V="V for bar: {}".format(i), only_f=True, to_plot=False,
@@ -128,7 +128,7 @@ def get_response_for_bar(trials = 1, bars = 21, mean = np.pi/2,
         avg_w_avg_in = np.mean(w_avg_in, axis=0)
         std_w_avg_in = np.std(w_avg_in, axis=0)
 
-        plot_soma_response(bars_range, avg, std, name="PO")
+        plot_soma_response(bars_range, avg, std, name="PO", name_file=name_file)
 
         plot_PO_vs_weight(np.abs(tuned_ex_synapses - np.pi/4) * 180 / np.pi, weight_profiles, name='exc', binary=True)
         plot_PO_vs_weight(np.abs(tuned_in_synapses - np.pi/4) * 180 / np.pi, w_inh, name='inh', binary=True)

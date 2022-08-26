@@ -5,41 +5,41 @@ import pickle
 from stimulus_sweep import *
 from plotting_setup import *
 
-def check_robustness():
+def check_robustness(plot_directory = "../plots/robustness_exp/"):
     '''
 
     :return: Plot of mean-squared-error (MSE) versus number of deleted synapses.
     '''
     # How many neurons to cut.
-    nr_to_cut = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+    #nr_to_cut = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
     #nr_to_cut = np.arange(0, 36, 2)
+    nr_to_cut = [0, 10, 20, 30, 40, 50, 80]
 
     # The type of connectivity.
     types = ["syn", "struct"]
 
     # Where to save the resulting files.
-    directory = '../data/robustness/'
+    data_directory = '../data/robustness/'
 
     # Run simulations to get tuning curves and save them in files.
-    run_check_robustness(nr_to_cut, types, directory)
+    run_check_robustness(nr_to_cut, types, data_directory)
 
     # Import the tuning curves from files.
-    f_syn, f_struct = get_data_robustness(nr_to_cut, types, directory)
+    f_syn, f_struct = get_data_robustness(nr_to_cut, types, data_directory)
 
     # Find the MSE in both cases.
-    syn_err = get_mse(f_syn[1:], f_syn[0])
-    struct_err = get_mse(f_syn[1:], f_struct[0])
+    syn_err = get_mse(f_syn[1:, 3:10], f_syn[0, 3:10])
+    struct_err = get_mse(f_syn[1:, 3:10], f_struct[0, 3:10])
 
-    #plt.figure()
+
     plt.scatter(nr_to_cut[1:], syn_err, label = "weight-based")
     plt.scatter(nr_to_cut[1:], struct_err, label = "number-based")
     plt.xlabel("# deleted synapses")
     plt.ylabel("MSE$(f)$")
     plt.legend()
-    plt.savefig("robustness.svg")
-    plt.savefig("robustness.png")
-    #plt.show()
-
+    if svg_enable == True: plt.savefig(plot_directory + "robustness.svg")
+    plt.savefig(plot_directory + "robustness.png")
+    plt.figure()
 
 
 def run_check_robustness(nr_to_cut, types, directory):
@@ -52,8 +52,13 @@ def run_check_robustness(nr_to_cut, types, directory):
     for type in types:
         for nr in nr_to_cut:
             name_file = "fs_" + type + "_" + str(nr) + '.pickle'
-            if os.path.exists(directory + name_file ) == False:
-                fs_syn = get_response_for_bar(to_plot=False, syn=True, binary=True, cut_nr_neurons=nr)[1]
+
+            if os.path.exists(directory + name_file) == False:
+                if nr == 0 or nr == 20 or nr == 30 or nr == 40:
+                    fs_syn = get_response_for_bar(trials=5, to_plot=True, syn=True, binary=True, cut_nr_neurons=nr, name_file=str(type)+"_"+str(nr))[1]
+                else:
+                    fs_syn = get_response_for_bar(trials=5, to_plot=False, syn=True, binary=True, cut_nr_neurons=nr,
+                                                 name_file=str(type) + "_" + str(nr))[1]
                 with open(directory + name_file, 'wb') as fout:
                     pickle.dump(fs_syn, fout)
             else:

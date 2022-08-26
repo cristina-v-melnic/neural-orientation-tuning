@@ -1,12 +1,12 @@
 from plots import *
 
-def evolve_potential_with_inhibition(spikes_ex, spikes_in,
+def integrate_COBA(spikes_ex, spikes_in,
                                      v = V_rest, g_e = g_0, g_i = g_0_i,
                                      tau = tau_ref, nr_spikes = 0,
                                      v_series = [], I_ex = [], I_in=[],
                                      w_ex = weight_profiles, w_in = w_inh,
                                      name_V = "V(t)", name_i = "i(t)",
-                                     to_plot = True, only_f = True, parameter_pass = False):
+                                     to_plot = False, only_f = True, parameter_pass = False):
     '''
     Numerically integrate the conductance based leaky integrate-and-fire equations to get
     the postsynaptic firing rate from the presynaptic afferents upon stimulus presentation.
@@ -103,10 +103,10 @@ def evolve_potential_with_inhibition(spikes_ex, spikes_in,
                     v_series.append(v)
 
     # Check if the spike train is only from this simulation
-    # or is a continuation of another trial.
+    # or is a continuation of another trial. (One must probably delete it)
     if (len(v_series) == initial):
          t_f = time_steps * dt / 1000
-         print("only stimulus")
+    #     print("only stimulus")
     else:
         t_f = (len(v_series) + time_steps)* 0.1 / 1000
 
@@ -120,10 +120,9 @@ def evolve_potential_with_inhibition(spikes_ex, spikes_in,
         return nr_spikes / (time_steps * 0.1 / 1000), spike_times
 
     elif (to_plot == True):
-
-        plot_v_trace(t_f, v_series, name_V=name_V)
-        plot_current_zoomed(t_f_zoom, I_in, I_ex, name_i=name_i)
-        plot_voltage_zoomed(t_f_zoom, v_zoom_series, name_V=name_V)
+        plot_v_trace(t_f, v_series, name_V = name_V)
+        plot_current_zoomed(t_f_zoom, I_in, I_ex, name_i = name_i)
+        plot_voltage_zoomed(t_f_zoom, v_zoom_series, name_V = name_V)
 
         return nr_spikes/(time_steps * 0.1 / 1000), spike_times
 

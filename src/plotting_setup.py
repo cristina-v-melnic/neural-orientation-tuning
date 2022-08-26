@@ -2,6 +2,14 @@ from matplotlib import cm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Directories to save plots
+sweep_directory = "../plots/stimulus_sweep/"
+integration_directory = "../plots/integration/"
+
+# Save copies in svg as well as png
+svg_enable = False
+
+# Style of plots
 sns.set()
 
 cmap = cm.get_cmap('turbo_r')
@@ -40,3 +48,5 @@ params = {'font.size': 21,
           # 'lines.dashed_pattern': [3.7, 1.6]
           }
 plt.rcParams.update(params)
+
+
