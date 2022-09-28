@@ -11,3 +11,9 @@ src/.idea/
 src/unknown.py/
 
 __pycache__/
+
+plots_extra/
+
+plots/
+
+data/

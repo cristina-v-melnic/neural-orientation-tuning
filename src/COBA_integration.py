@@ -113,8 +113,7 @@ def integrate_COBA(spikes_ex, spikes_in,
     # Print the final firing rate after each integration.
     print("Neuron output f = {} Hz".format(nr_spikes/t_f))
 
-    # Choose to return only the firing rate,
-    # the firing rate and plots,
+    # Choose to only return the firing rate and plots,
     # or to pass parameters and continue the integration.
     if (only_f == True):
         return nr_spikes / (time_steps * 0.1 / 1000), spike_times

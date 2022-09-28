@@ -1,11 +1,9 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import pickle
 from stimulus_sweep import *
 from plotting_setup import *
 
-def check_robustness(plot_directory = "../plots/robustness_exp/"):
+def check_robustness(plot_directory = "../plots/robustness/"):
     '''
 
     :return: Plot of mean-squared-error (MSE) versus number of deleted synapses.
@@ -13,7 +11,7 @@ def check_robustness(plot_directory = "../plots/robustness_exp/"):
     # How many neurons to cut.
     #nr_to_cut = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
     #nr_to_cut = np.arange(0, 36, 2)
-    nr_to_cut = [0, 10, 20, 30, 40, 50, 80]
+    nr_to_cut = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
 
     # The type of connectivity.
     types = ["syn", "struct"]
@@ -32,9 +30,9 @@ def check_robustness(plot_directory = "../plots/robustness_exp/"):
     struct_err = get_mse(f_syn[1:, 3:10], f_struct[0, 3:10])
 
 
-    plt.scatter(nr_to_cut[1:], syn_err, label = "weight-based")
-    plt.scatter(nr_to_cut[1:], struct_err, label = "number-based")
-    plt.xlabel("# deleted synapses")
+    plt.scatter(100/200*np.asarray(nr_to_cut[1:]), syn_err, label = "weight-based")
+    plt.scatter(100/200*np.asarray(nr_to_cut[1:]), struct_err, label = "number-based")
+    plt.xlabel("% deleted synapses")
     plt.ylabel("MSE$(f)$")
     plt.legend()
     if svg_enable == True: plt.savefig(plot_directory + "robustness.svg")
@@ -54,7 +52,7 @@ def run_check_robustness(nr_to_cut, types, directory, nr_trials = 5):
             name_file = "fs_" + type + "_" + str(nr) + '.pickle'
 
             if os.path.exists(directory + name_file) == False:
-                if nr == 0 or nr == 20 or nr == 30 or nr == 40:
+                if nr == 0 or nr == 60 or nr == 80 or nr == 100:
                     fs_syn = get_response_for_bar(trials = nr_trials, to_plot = True, syn = True, binary = True,
                                                   cut_nr_neurons = nr, name_file = str(type)+"_"+str(nr))[1]
                 else:

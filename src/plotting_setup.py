@@ -5,6 +5,7 @@ import seaborn as sns
 # Directories to save plots
 sweep_directory = "../plots/stimulus_sweep/"
 integration_directory = "../plots/integration/"
+stats_directory = "../plots/stats/"
 
 # Save copies in svg as well as png
 svg_enable = False
@@ -12,7 +13,7 @@ svg_enable = False
 # Style of plots
 sns.set()
 
-cmap = cm.get_cmap('turbo_r')
+cmap = cm.get_cmap('turbo')
 
 # Parameters used for plotting.
 # No need to change unless the plotting style is suboptimal.

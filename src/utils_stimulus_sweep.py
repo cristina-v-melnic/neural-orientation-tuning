@@ -1,8 +1,18 @@
+
 from parameters import *
 from plotting_setup import *
 
 # Set weights
 def generate_weights(order = False):
+    '''
+
+    :param order:
+            Sort the excitatory array of weights from large to small.
+    :return:
+            [array(N_excit_synapses), array(N_inhib_synapses)]
+            Lognormally sampled synaptic weights for each neuron
+            from both excitatory and inhibitory populationa.
+    '''
     global weight_profiles, w_inh
 
     weight_profiles = np.log(X.rvs(N_excit_synapses))
@@ -13,9 +23,23 @@ def generate_weights(order = False):
 
     return weight_profiles, w_inh
 
+
 def cut_neurons(PO_vector, weight_profiles, number = 50):
+    '''
+    Cut neurons by setting their weights to 0 in the weights array.
+
+    :param PO_vector: Array of the same shape as weights profile
+                      that stores the PO of the i-th neuron.
+    :param weight_profiles:
+    :param number: Number of neurons to cut.
+    :return: Weights profiles with "number" terms set to 0.
+    '''
+
+    # Collect indexes of neurons that are sufficiently different
+    # from the desired PO.
     PO_indexes = np.where((PO_vector - np.pi/4) < np.pi/20)
 
+    # Set the weights of "number" of these neurons to 0.
     for i in range(number):
         weight_profiles[PO_indexes[0][i]] = 0
 
@@ -208,7 +232,99 @@ def generate_spikes_array(f_response = np.ones(N_excit_synapses) * f_background,
     else:
         raise ValueError("Each synapse must have a corresponding frequency. i.e. size(f_response) = Nr exitatory synapses")
 
+
 def count_active_synapses(f_array = np.linspace(0,20,20), f_active = f_max, w = weight_profiles):
     n = np.argwhere(f_array > f_active).ravel()
     return len(n), np.sum(w[n]), np.average(w[n])
 
+def get_f_isi_and_cv(spikes_arrays, to_plot = True, nr_seconds = stimulus_seconds, name = "", color=cmap(1.0)):
+    """
+
+    :param spikes_arrays: spikes_array = [Excitatory spike train array, Inhibitory spike trains]
+                          - list of arrays of arbitrary dimensions
+    :return: Plots firing rates, ISI and CV of ISI for both E/I populations.
+    """
+
+    if to_plot == True: both_isi = []
+    both_fs = []
+    spikes_array = spikes_arrays
+
+    #for spikes_array in spikes_arrays:
+    if True:
+        N = len(spikes_array)
+        if to_plot == True:
+            all_isi = []
+            all_indexes = []
+        all_fs = np.zeros(N)
+        for i in range(N):
+            indexes = np.nonzero(spikes_array[i])
+            all_fs[i] = len(indexes[0])/nr_seconds
+            if to_plot == True:
+                all_isi.append(np.diff(indexes, axis=1) * dt)
+                if i%5 == 0:
+                    plt.eventplot(np.asarray(indexes)*0.0001, color=color, lineoffsets=i, linelengths = 3)
+
+
+        # The None term is added because the arrays in the list
+        # have different sizes.
+        if to_plot == True:
+            all_isi = np.concatenate(all_isi, axis=None).ravel()
+            both_isi.append(all_isi)
+            all_indexes.append(indexes)
+        both_fs.append(all_fs)
+
+    if to_plot == True:
+        plt.xlabel("Time (s)")
+        #plt.ylabel("Cell number")
+
+        ax = plt.gca()
+        #ax.set_figwidth(4)
+        #ax.set_figheight(1)
+        ax.spines.left.set_visible(False)
+        # plt.gca().axes.get_yaxis().set_visible(False)
+        # plt.savefig("{} {} synapses out of {}. Ensemble f = {:.2f} Hz.svg".format(spikes_to_see, name, N_synapses, f))
+        #plt.savefig("Raster plot = {}.svg".format(name))
+        plt.savefig(stats_directory + "Raster plot = {}.png".format(name))
+        plt.figure()
+
+
+        #labels = ['Excitatory', 'Inhibitory']
+        #colors = ['tab:orange', 'tab:blue']
+        labels = ['Input']
+        colors = ['green']
+
+        #for i, fs in enumerate(both_fs):
+        fs = both_fs[0]
+        if True:
+            plt.hist(fs, weights=np.ones_like(fs) / len(fs), label=labels[0], color=color, alpha = 0.9)
+            plt.xlabel("f (Hz)")
+            plt.ylabel("Percent")
+            #plt.savefig("Averate firing rates trial = {}.svg".format(name))
+            plt.savefig(stats_directory + "Averate firing rates trial = {}.png".format(name))
+        plt.figure()
+
+        #for i, isi in enumerate(both_isi):
+        isi = all_isi
+        if True:
+            plt.hist(isi, weights=np.ones_like(isi) / len(isi), label=labels[0], color=color, alpha = 0.8, bins=20)
+            plt.xlim([0,1000])
+            plt.xlabel("ISI (ms)")
+            plt.ylabel("Percent")
+            #plt.savefig("Interspike intervals trial = {}.svg".format(name))
+            plt.savefig(stats_directory + "Interspike intervals trial = {}.png".format(name))
+        plt.figure()
+
+        #for i, isi in enumerate(both_isi):
+        if True:
+            mean = np.mean(isi)
+            cv = np.sqrt((isi - mean) ** 2) / mean
+            plt.hist(cv, weights=np.ones_like(cv) / len(cv), label=labels[0], color=color, alpha = 0.8, bins=40)
+            plt.xlim([0,4])
+            plt.xlabel("CV of ISI")
+            plt.ylabel("Percent")
+            #plt.legend()
+            #plt.savefig("CV of ISI trial = {}.svg".format(name))
+            plt.savefig(stats_directory+"CV of ISI trial = {}.png".format(name))
+        plt.figure()
+
+        return fs

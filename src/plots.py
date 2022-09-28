@@ -162,7 +162,7 @@ def plot_current_zoomed(t_f_zoom, I_in, I_ex, name_i = "I(t)_zoomed"):
 
 def plot_voltage_zoomed(t_f_zoom, v_zoom_series, name_V = "V(t)"):
     t = np.linspace(0, t_f_zoom, len(v_zoom_series))
-    plt.plot(t, v_zoom_series, color="gray", linewidth=3)
+    plt.plot(t * 0.0001, v_zoom_series, color="gray", linewidth=3)
     plt.xlabel("Time (s)")
     plt.ylabel("Membrane potential (mV)")
     plt.locator_params(axis='y', nbins=5)
