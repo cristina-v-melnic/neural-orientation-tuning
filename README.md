@@ -1,13 +1,33 @@
 # neural-orientation-tuning
- Code for "Orientation selectivity can arise from distinct connectivity patterns" project.
+Code for the research internship project with the title "Orientation selectivity can arise from distinct connectivity patterns".
 
 ## Application description
 Model of a single orientation-selective neuron receiving inputs from afferents with
-different preferred orientations. The project shows what properties the postsynaptic neuron has
-and how they depend on the input. It aims to investigate two types of connectivity of neurons
+different preferred orientations. The project's aim is to investigate what properties the postsynaptic neuron has
+and how they depend on the input afferents. It aims to investigate two types of connectivity of neurons
 in the primary visual cortex, i.e., weight-based and number-based.
 
-To reproduce some of the results, the functions below can be run in the main.py file. 
+### Code structure
+
+#### Building blocks
+For a demonstration of how to instantiate simple objects using the classes below, check out the notebook **src/Demo.ipynb**,
+or their respective **source files in src/**.
+
+- *ConnectedNeuron.py* - Class containing the stimulus-independent properties of the single neuron and
+                    its afferents, such as nr of afferents, their synaptic weights, and the individual
+                    tuning of the afferents (distribution of PO per afferent).
+                    
+- *SpikyLIF.py* - Class describing the activity of the postsynaptic neuron
+    given the circuit connectivity and spiking activity of the
+    presynaptic neurons.
+    
+- *TunedResponse.py* - Class containing orientation-selective response of
+                       pre- and post-synaptic neurons upon stimuli in form
+                       of bars of different orientation angles.
+                       
+
+
+To reproduce some of the results using the functional structure, the lines below can be run in the main.py file. 
 #### To get plots of a tuning curve:
 `get_response_for_bar(trials=5, to_plot=True, mean = np.pi/4)`
 
