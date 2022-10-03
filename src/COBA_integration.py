@@ -38,7 +38,7 @@ def integrate_COBA(spikes_ex, spikes_in,
     :return: Postsynaptic spike train parameters and/or plots, depending on specifications.
     '''
 
-    # Record the initial lenth of the spike train.
+    # Record the initial length of the spike train.
     initial = len(v_series)
 
     # Get the trial duration from the spike data.
