@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from plotting_setup import *
 from parameters import *
 
@@ -128,7 +130,7 @@ def plot_PO_vs_weight(x, y, name = '', binary = False):
     plt.figure()
 
 # Postsynaptic_train plots
-def plot_v_trace(t_f, v_series, name_V = "V(t)"):
+def plot_v_trace(t_f, v_series, name_V = "V(t)", show = False):
     # Plotting the trace.
     t = np.linspace(0, t_f, len(v_series))
 
@@ -139,9 +141,10 @@ def plot_v_trace(t_f, v_series, name_V = "V(t)"):
     plt.locator_params(axis='x', nbins=5)
     if svg_enable == True: plt.savefig(integration_directory + name_V + ".svg")
     plt.savefig(integration_directory + name_V + ".png")
+    if show == True: plt.show()
     plt.figure()
 
-def plot_current_zoomed(t_f_zoom, I_in, I_ex, name_i = "I(t)_zoomed"):
+def plot_current_zoomed(t_f_zoom, I_in, I_ex, name_i = "I(t)_zoomed", show = False):
     # Plotting the currents.
     t_f_zoom = t_f_zoom * dt / 1000
     t = np.linspace(0, t_f_zoom, len(I_in))
@@ -158,9 +161,10 @@ def plot_current_zoomed(t_f_zoom, I_in, I_ex, name_i = "I(t)_zoomed"):
     plt.legend(labelcolor='linecolor')
     if svg_enable == True: plt.savefig(integration_directory + name_i + ".svg")
     plt.savefig(integration_directory + name_i + ".png")
+    if show == True: plt.show()
     plt.figure()
 
-def plot_voltage_zoomed(t_f_zoom, v_zoom_series, name_V = "V(t)"):
+def plot_voltage_zoomed(t_f_zoom, v_zoom_series, name_V = "V(t)", show = False):
     t = np.linspace(0, t_f_zoom, len(v_zoom_series))
     plt.plot(t * 0.0001, v_zoom_series, color="gray", linewidth=3)
     plt.xlabel("Time (s)")
@@ -169,4 +173,5 @@ def plot_voltage_zoomed(t_f_zoom, v_zoom_series, name_V = "V(t)"):
     plt.locator_params(axis='x', nbins=5)
     if svg_enable == True: plt.savefig(integration_directory + name_V + "zoom.svg")
     plt.savefig(integration_directory + name_V + "zoom.png")
+    if show == True: plt.show()
     plt.figure()

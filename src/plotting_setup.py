@@ -1,11 +1,17 @@
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
+#abs_dir = "/home/cristina/PycharmProjects/neural-orientation-tuning/src"
+abs_dir = os.getcwd()
 # Directories to save plots
-sweep_directory = "../plots/stimulus_sweep/"
-integration_directory = "../plots/integration/"
-stats_directory = "../plots/stats/"
+sweep_directory = abs_dir[:-4]+"/plots/stimulus_sweep/"
+integration_directory = abs_dir[:-4] + "/plots/integration/"
+stats_directory = abs_dir[:-4] + "/plots/stats/"
+#sweep_directory = "../plots/stimulus_sweep/"
+#integration_directory = "../plots/integration/"
+#stats_directory = "../plots/stats/"
 
 # Save copies in svg as well as png
 svg_enable = False
