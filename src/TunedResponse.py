@@ -1,3 +1,5 @@
+import numpy as np
+
 from parameters import *
 from ConnectedNeuron import *
 from SpikyLIF import *
@@ -10,7 +12,7 @@ class TunedResponse:
         of bars or different orientation angles.
     '''
 
-    def __init__(self, NeuronConnectivity, NeuronModel, nr_bars, trials, to_plot = "True"):
+    def __init__(self, NeuronConnectivity, nr_bars, trials, to_plot = False, theta=[]):
         '''
         :param NeuronConnectivity: (ConnectedNeuron) Object
                                     describing the connectivity
@@ -29,19 +31,22 @@ class TunedResponse:
         '''
         # Stimulus details.
         self.nr_bars = nr_bars
-        self.bars_range = np.linspace(0, 180, self.nr_bars)
+        if theta==[]:
+            self.theta = np.arange(1, self.nr_bars + 1, 1) * np.pi / (self.nr_bars)
+        else:
+            self.theta = theta
+        #self.bars_range = np.linspace(0, 180, self.nr_bars)
+        self.bars_range = 180/np.pi * np.asarray(self.theta)
         self.trials = trials
 
-        # Neural network details.
+        # Neural connectivity details.
         self.NeuronConnectivity = NeuronConnectivity
-        self.NeuronModel = NeuronModel
 
         # Response details.
         # Vectors to store the firing rate for every bar at each trial.
         self.fs_out = np.zeros((self.trials, self.nr_bars))
         self.f_avg = 0
         self.f_std = 0
-
 
         # Vectors to store parameters of active synapses,
         # i.e., f > f_max - f_max * 0.1 Hz.
@@ -56,11 +61,9 @@ class TunedResponse:
         # Visualisation.
         self.to_plot = to_plot
 
+        self.get_response_for_bar()
 
-    def get_response_for_bar(self, mean=np.pi / 2,
-                             syn=False, binary=False, to_plot=True,
-                             color_neuron='gray', homogeneous=False,
-                             cut_nr_neurons=0, name_file="post"):
+    def get_response_for_bar(self):
         '''
         Get the tuning curve of a postsynaptic neuron with
         differently tuned presynaptic afferents by presenting
@@ -76,97 +79,81 @@ class TunedResponse:
         :return: Tuning curve of the postsynaptic neuron as a list and/or a plot.
         '''
 
-        # Set the weights according to connectivity, i.e., synaptic vs structural.
-        #if syn == True:
-        #    w_ex, w_inh = generate_weights(order=True)
-        #    # Set POs according to distribution, i.e., binary(two types of POs) vs continuous.
-        #    if binary == True:
-        #        tuned_ex_synapses, tuned_in_synapses = tune_binary_synaptic()
-        #    else:
-        #        tuned_ex_synapses, tuned_in_synapses = tune_cont_synaptic()
-        #else:
-        #   w_ex, w_inh = generate_weights(order=False)
-        #    if binary == True:
-        #        tuned_ex_synapses, tuned_in_synapses = tune_binary()
-        #    else:
-        #        tuned_ex_synapses, tuned_in_synapses = cont_tuning()
+        # Get parameters in the spontaneous firing mode before showing the stimulus.
+        Bkg_LIF = SpikyLIF(self.NeuronConnectivity)
 
-        # Robustness experiment upon deleting tuned afferents in both scenarios.
-        #if cut_nr_neurons != 0:
-        #    w_ex = cut_neurons(tuned_ex_synapses, w_ex, number=cut_nr_neurons)
-
-        # List for storing postsynaptic spikes.
-        all_spikes = []
+        # Loop over trials. (1 trial = 1 sweep of bars
+        # through the set of stimulus angles)
         for j in range(self.trials):
-            print("trial {}".format(j))
+            print("Trial Nr:{}".format(j))
 
+            # Loop over the stimulus angles:
+            for i in range(self.nr_bars):
 
+                # Get response firing rates of all neurons for trial i (analytic).
+                fs_ex = self.get_fs(theta=self.theta[i], theta_synapse=self.NeuronConnectivity.PO_e)
+                fs_in = self.get_fs(theta=self.theta[i], theta_synapse=self.NeuronConnectivity.PO_i, f_background=f_inhib)
 
-            # Get parameters in the spontaneous firing mode before showing the stimulus.
-            v_spont, g_e_spont, g_i_spont, tau_spont, nr_spikes_spont, v_series_spont, I_ex_spont, I_in_spont = integrate_COBA(
-                spikes_ex=spikes_pre, spikes_in=spikes_inh_pre,
-                to_plot=False, only_f=False, parameter_pass=True, w_ex=w_ex)
-            print("after int = {}".format(v_spont))
+                # Plot LIF dynamics for trial 0 and certain angles.
+                plot_v_data = False
+                if self.to_plot == True:
+                    if (j == 0) and (i == 0 or i == 5 or i == 10 or i == 15):
+                        plot_v_data = True
 
-            # Loop over trials.
-            for i in range(self.bars):
-                theta = i * np.pi / (bars - 1)
+                # Obtain the postsynaptic activity.
+                LIF_i = SpikyLIF(self.NeuronConnectivity, f_e = fs_ex, f_i = fs_in, mode="response",
+                                         v = Bkg_LIF.v, g_e = Bkg_LIF.g_e, g_i = Bkg_LIF.g_i, to_plot = plot_v_data,
+                                         name_i="i for bar: {}".format(i), name_V="V for bar: {}".format(i))
 
-                # Get firing rates of all neurons for trial i (analytic).
-                fs_ex = get_fs(theta=theta, theta_synapse=tuned_ex_synapses)
-                fs_in = get_fs(theta=theta, theta_synapse=tuned_in_synapses, f_background=f_inhib)
-
-                # Generate Poisson spikes with the analytic firing rate for every neuron.
-                if homogeneous == False:
-                    spikes_ex, fs_res_ex = generate_spikes_array(fs_ex)
-                    spikes_in, fs_res_in = generate_spikes_array(f_response=fs_in, f_background=f_inhib)
-                else:
-                    fs_ex = get_fs(theta=theta, theta_synapse=mean * np.ones(N_excit_synapses),
-                                   f_background=f_background)
-                    fs_in = get_fs(theta=theta, theta_synapse=mean * np.ones(N_inhib_synapses), f_background=f_inhib)
-                    spikes_ex, fs_res_ex = generate_spikes_array(f_response=fs_ex, f_background=f_background)
-                    spikes_in, fs_res_in = generate_spikes_array(f_response=fs_in, f_background=f_inhib)
+                # Save the postsynaptic firing rate for the response curve.
+                self.fs_out[j, i] = LIF_i.f_post
+                print("Bar {} deg: f_post  = {} mV".format(self.theta[i], LIF_i.f_post))
 
                 # Get the number and the weights of active synapses,
                 # defined as ones with firing rate larger than f_max - 0.1 * f_max.
-                nr_active_ex[j][i], w_active_ex[j][i], w_avg_ex[j][i] = count_active_synapses(fs_res_ex,
-                                                                                              f_active=f_max - 0.1 * f_max,
-                                                                                              w=weight_profiles)
-                nr_active_in[j][i], w_active_in[j][i], w_avg_in[j][i] = count_active_synapses(fs_res_in,
-                                                                                              f_active=f_max - 0.1 * f_max,
-                                                                                              w=w_inh)
-
-                # Get the postsynaptic neuron voltage trace (i.e. spikes)
-                # by COBA LIF integration. Get a few detailed plots for the 5th, 10th and 15th trials.
-                if (j == 0) and (i == 0 or i == 5 or i == 10 or i == 15) and (to_plot == True):
-                    fs_out[j, i], spike_times = integrate_COBA(
-                        spikes_ex, spikes_in, w_ex=w_ex,
-                        v=v_spont, g_e=g_e_spont, g_i=g_i_spont, tau=tau_ref, nr_spikes=0, v_series=[], I_ex=[],
-                        I_in=[],
-                        name_i="i for bar: {}".format(i), name_V="V for bar: {}".format(i), only_f=False, to_plot=True,
-                        parameter_pass=False)
-
-                else:
-                    fs_out[j, i], spike_times = integrate_COBA(
-                        spikes_ex, spikes_in, w_ex=w_ex,
-                        v=v_spont, g_e=g_e_spont, g_i=g_i_spont, tau=tau_ref, nr_spikes=0, v_series=[], I_ex=[],
-                        I_in=[],
-                        name_i="i for bar: {}".format(i), name_V="V for bar: {}".format(i), only_f=True, to_plot=False,
-                        parameter_pass=False)
-
-                # Save the spike times.
-                all_spikes.append(spike_times)
-
-                # print("f_out = {}".format(fs_out[j,i]))
-            # plt.scatter(bars_range, fs_out[j,:], alpha=0.2, color = color_neuron)
-            # plt.savefig("output trial {}".format(j))
-        # plt.savefig("output_f_theta_all")
+                #self.nr_active_ex[j][i], self.w_active_ex[j][i], self.w_avg_ex[j][i] = count_active_synapses(LIF_i.f_spikes_e,
+                #                                                                              f_active=f_max - 0.1 * f_max,
+                #                                                                              w=self.NeuronConnectivity.W_e)
+                #self.nr_active_in[j][i], self.w_active_in[j][i], self.w_avg_in[j][i] = count_active_synapses(LIF_i.f_spikes_i,
+                #                                                                              f_active=f_max - 0.1 * f_max,
+                #                                                                              w=self.NeuronConnectivity.W_e)
 
         self.f_avg = np.mean(self.fs_out, axis=0)
         self.f_std = np.std(self.fs_out, axis=0)
 
 
-        #return bars_range, avg, std, all_spikes
+    def get_fs(self, theta=1.3, theta_synapse=[0], f_background=f_background,
+               width=np.pi / 6):
+        '''
+        Generate the analytical individual tuned response of
+        the afferents given the stimulus "theta" and their POs.
+
+        :param theta: (double) The stimulus orientation angle (rad).
+        :param theta_synapse: (array) PO of each afferent.
+        :param f_background: Background firing rate.
+        :param width: Range of angles to be tuned f > f_bkg.
+
+        :return: f (array) Response firing rate of each
+                    afferent to the stimulus "theta".
+        '''
+        delta = np.asarray(theta_synapse) - theta
+
+        # Fitted parameters using desmos.
+        desmos_const = (-1) * 1.98902731655
+        B = (f_background - f_max) / desmos_const
+        A = f_max - B
+
+        N_syn = len(delta)
+        f = np.zeros(N_syn)
+
+        for i in range(N_syn):
+            if np.abs(delta[i]) <= width:
+                f[i] = A + B * np.cos(2 * np.pi * delta[i])
+            else:
+                f[i] = f_background
+
+        return f
+
 
     def plot_figs(self):
         # If specified, plot the response curve of the postsynaptic neuron and
@@ -186,13 +173,10 @@ class TunedResponse:
         avg_w_avg_in = np.mean(self.w_avg_in, axis=0)
         std_w_avg_in = np.std(self.w_avg_in, axis=0)
 
-        plot_soma_response(self.bars_range, self.f_avg, self.f_std, name="PO", name_file=name_file)
-
-        plot_PO_vs_weight(np.abs(self.NeuronConnectivity.PO_e - np.pi / 4) * 180 / np.pi, weight_profiles, name='exc',
-                          binary=True)
-        plot_PO_vs_weight(np.abs(self.NeuronConnectivity.PO_i - np.pi / 4) * 180 / np.pi, w_inh, name='inh', binary=True)
-
         plot_fig_3a(self.bars_range, self.f_avg, avg_w_ex, avg_w_in, self.f_std, std_w_ex, std_w_in)
         plot_fig_3b(self.bars_range,
                     avg_w_avg_ex, avg_nr_ex, std_w_avg_ex, std_nr_ex,
                     avg_w_avg_in, avg_nr_in, std_w_avg_in, std_nr_in)
+
+    def plot_postsynaptic_curve(self):
+        plot_soma_response(self.bars_range, self.f_avg, self.f_std, name="PO", name_file="post")

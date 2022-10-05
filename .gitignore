@@ -17,3 +17,7 @@ plots_extra/
 plots/
 
 data/
+
+.ipynb_checkpoints/
+
+src/.ipynb_checkpoints

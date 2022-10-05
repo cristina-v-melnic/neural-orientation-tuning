@@ -1,5 +1,6 @@
 import numpy as np
 from parameters import *
+from plots import *
 from tuning_distributions import *
 from scipy.stats import truncnorm
 
@@ -44,6 +45,8 @@ class ConnectedNeuron:
 
         self.generate_weights()
         self.tune_afferents()
+        if to_plot == True:
+            self.plot_PO_diff_vs_weight()
 
     def generate_weights(self):
         '''
@@ -90,3 +93,14 @@ class ConnectedNeuron:
                                                           to_plot=self.to_plot)
 
 
+    def plot_PO_diff_vs_weight(self):
+        if self.PO_distrib == "binary":
+            plot_PO_vs_weight(np.abs(self.PO_e - self.PO) * 180 / np.pi,
+                              self. W_e, name='exc', binary=True)
+            plot_PO_vs_weight(np.abs(self.PO_i - self.PO) * 180 / np.pi,
+                              self.W_i, name='inh', binary=True)
+        else:
+            plot_PO_vs_weight(np.abs(self.PO_e - self.PO) * 180 / np.pi,
+                              self.W_e, name='exc')
+            plot_PO_vs_weight(np.abs(self.PO_i - self.PO) * 180 / np.pi,
+                              self.W_i, name='inh')
