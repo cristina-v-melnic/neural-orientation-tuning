@@ -1,4 +1,6 @@
 import numpy as np
+
+from ConnectedNeuron import *
 from parameters import *
 from plots import *
 
@@ -11,8 +13,9 @@ class SpikyLIF:
     '''
 
     def __init__(self, ConnectedNeuron, to_plot = False,
-                 spikes_e = spikes_pre, spikes_i = spikes_inh_pre,
-                 name_i = "i(t)", name_V = "V(t)", show = False):
+                 f_e = f_background, f_i = f_inhib, mode = "bkg",
+                 name_i = "i(t)", name_V = "V(t)", show = False,
+                 v = V_rest, g_e = g_0, g_i = g_0_i):
         '''
 
         :param ConnectedNeuron: Object with connectivity description.
@@ -22,33 +25,33 @@ class SpikyLIF:
         :param spikes_e: (nr_excit_neurons x timesteps) Array with values 1/0
                             giving the spiking activity of excitatory afferents;
         :param spikes_i: (Nr_inhib_neurons x timesteps) array analogous to above;
+        :param mode: ["bkg", "response"] Type of firing mode.
         :param name_i: Name of the membrane currents plot file;
         :param name_V: Name of the membrane potential plot file;
         :param show: [] If to_plot == True, returns the plots to console
                         in addition to saving them externally.
         '''
 
-        # Afferents weights and spike trains.
+        # Afferents weights and firing rates of
+        # spike trains.
         self.ConnectedNeuron = ConnectedNeuron
         self.W_e = self.ConnectedNeuron.W_e
         self.W_i = self.ConnectedNeuron.W_i
-        self.spikes_e = spikes_e
-        self.spikes_i = spikes_i
+        self.mode = mode
+        self.f_response_e = f_e # Analytic firing rates of
+        self.f_response_i = f_i # afferents from each PO.
 
         # Integration details.
         self.dt = dt
-        # Get the trial duration from the spike data.
-        self.time_steps = len(self.spikes_e[0])
 
         # Model parameters.
         self.tau = tau_ref
 
         # Key output for the response curve.
         self.nr_spikes = 0
-        self.f_post = self.nr_spikes / (self.time_steps * 0.1 / 1000)
-        self.g_e = g_0
-        self.g_i = g_0_i
-        self.v = V_rest
+        self.g_e = g_e
+        self.g_i = g_i
+        self.v = v
 
         # Visualisation variables.
         self.to_plot = to_plot
@@ -60,14 +63,29 @@ class SpikyLIF:
         self.I_ex = []
         self.I_in = []
         self.t_f_zoom = 1.5  # s
-        self.t_f = self.time_steps * dt / 1000  # total time in seconds
 
         # List to store the spike times for storage optimality (not used yet).
         self.spike_times = []
 
+        # Generate and assign the spike trains
+        # of the afferents.
+        self.spikes_e = [0]
+        self.spikes_i = [0]
 
+        self.fs_spikes_e = [0] # Firing rates of afferents from the
+        self.fs_spikes_i = [0] # generated Poisson spike trains
+        self.assign_spikes_arrays() # Populates the empty vars above.
 
+        # Get the trial duration from the spike data.
+        self.time_steps = len(self.spikes_e[0])
+        self.t_f = self.time_steps * dt / 1000  # total time in seconds
+        self.f_post = self.nr_spikes / (self.time_steps * 0.1 / 1000)
+
+        # Get the postsynaptic spike train.
         self.integrate_COBA()
+
+        # Plot parameters od postsynaptic activity
+        # upon specification.
         if self.to_plot == True:
            self.visualise_COBA()
 
@@ -147,3 +165,47 @@ class SpikyLIF:
             self.I_in.append(self.g_i * (E_inh - self.v) + (E_leak - self.v))
             self.v_zoom_series.append(self.v)
             self.t_f_zoom = i
+
+
+    # Get response of afferents for a given stimulus (array f_response).
+    def assign_spikes_arrays(self):
+        '''
+        Assign the right spike trains of afferents
+        depending on whether the system is in the
+        backroung firing mode or not.
+        '''
+        # If in the background firing mode:
+        if self.mode == "bkg":
+            self.spikes_e = spikes_pre
+            self.spikes_i = spikes_inh_pre
+        else:
+            self.spikes_e, self.fs_spikes_e = self.get_poisson_spike_train(self.f_response_e)
+            self.spikes_i, self.fs_spikes_i = self.get_poisson_spike_train(self.f_response_i)
+
+    def get_poisson_spike_train(self, f_response):
+        """
+        Generate a spike of length N with a frequency of firing_rate.
+
+        :param N: length of spike evolution in time array.
+        :param firing_rate: 5 Hz: the background firing rate.
+        :return: [array of background rate firing of shape = (N_synapses, N)
+                  number of spikes in (t_final - t_0) time]
+        """
+
+        # Make sure no neuron is firing below the background rate.
+        if len(f_response) > 0:
+            for i in range(len(f_response)):
+                if f_response[i] < f_background:
+                    f_response[i] = f_background
+        else:
+            raise ValueError(
+                "Each synapse must have a corresponding frequency. i.e. size(f_response) = Nr exitatory synapses")
+        # Get the spike train for each afferent.
+        spikes_stimulus = np.zeros((len(f_response), stimulus_time_steps))
+        fs = np.zeros(len(f_response))
+
+        for i in range(len(f_response)):
+            train = np.random.poisson(lam=f_response[i] * 10e-4 * dt, size=(1, stimulus_time_steps))
+            fs[i] = len(np.nonzero(train)[0]) / stimulus_seconds
+            spikes_stimulus[i] = train
+        return spikes_stimulus, fs
