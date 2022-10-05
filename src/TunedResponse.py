@@ -107,7 +107,7 @@ class TunedResponse:
 
                 # Save the postsynaptic firing rate for the response curve.
                 self.fs_out[j, i] = LIF_i.f_post
-                print("Bar {} deg: f_post  = {} mV".format(self.theta[i], LIF_i.f_post))
+                print("Bar oriented at {} deg: f_post  = {} Hz".format(self.theta[i]*180/np.pi, LIF_i.f_post))
 
                 # Get the number and the weights of active synapses,
                 # defined as ones with firing rate larger than f_max - 0.1 * f_max.
