@@ -10,8 +10,8 @@ in the primary visual cortex, i.e., weight-based and number-based.
 ### Code structure
 
 #### Building blocks
-For a demonstration of how to instantiate simple objects using the classes below, check out the notebook **src/Demo.ipynb**,
-or their respective **source files in src/**.
+For a demonstration of how to instantiate simple objects using the classes below, see the [jupyter notebook demo](https://github.com/cristina-v-melnic/neural-orientation-tuning/blob/main/src/Demo.ipynb),
+or their respective [source files in src/](https://github.com/cristina-v-melnic/neural-orientation-tuning/tree/main/src).
 
 - *ConnectedNeuron.py* - Class containing the stimulus-independent properties of the single neuron and
                     its afferents, such as nr of afferents, their synaptic weights, and the individual
