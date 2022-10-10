@@ -9,7 +9,8 @@
 	- [ ] Separate the lif
 	- [ ] Separate the sweep
 	- [ ] Create some sample data and plots folders
-- [ ] Change to object-oriented
+- [x] Change to object-oriented
+- [ ] Integrate all functions into object-oriented
 
 
 
